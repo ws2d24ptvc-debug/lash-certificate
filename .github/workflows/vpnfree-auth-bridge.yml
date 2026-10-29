@@ -1,0 +1,139 @@
+name: VPN-free auth bridge
+
+on:
+  push:
+    paths:
+      - '.github/workflows/vpnfree-auth-bridge.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  bridge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start safe backend proxy
+        env:
+          BACKEND: https://c--eb1598e0-facf-4633-be7b-c7b847af05a2-prod.lovable.cloud
+        run: |
+          cat > /tmp/proxy.mjs <<'JS'
+          import http from 'node:http';
+          const backend = process.env.BACKEND.replace(/\/$/, '');
+          const allowed = new Set(['https://ws2d24ptvc-debug.github.io']);
+          const server = http.createServer(async (req, res) => {
+            const origin = req.headers.origin || '';
+            const corsOrigin = allowed.has(origin) ? origin : 'https://ws2d24ptvc-debug.github.io';
+            const cors = {
+              'access-control-allow-origin': corsOrigin,
+              'access-control-allow-methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
+              'access-control-allow-headers': 'authorization,apikey,content-type,prefer,x-client-info,x-supabase-api-version',
+              'access-control-expose-headers': 'content-range,range-unit,x-supabase-api-version',
+              'access-control-allow-credentials': 'false',
+              'vary': 'Origin',
+            };
+            if (req.method === 'OPTIONS') {
+              res.writeHead(204, cors); res.end(); return;
+            }
+            if (req.url === '/health') {
+              res.writeHead(200, { ...cors, 'content-type': 'application/json' });
+              res.end(JSON.stringify({ ok: true, proxy: 'ready' })); return;
+            }
+            if (!req.url.startsWith('/auth/v1/') && !req.url.startsWith('/rest/v1/')) {
+              res.writeHead(404, { ...cors, 'content-type': 'text/plain' }); res.end('Not found'); return;
+            }
+            try {
+              const chunks = [];
+              for await (const chunk of req) chunks.push(chunk);
+              const body = chunks.length ? Buffer.concat(chunks) : undefined;
+              const headers = {};
+              for (const name of ['authorization','apikey','content-type','prefer','x-client-info','x-supabase-api-version','accept']) {
+                if (req.headers[name]) headers[name] = req.headers[name];
+              }
+              const upstream = await fetch(backend + req.url, {
+                method: req.method,
+                headers,
+                body: ['GET','HEAD'].includes(req.method) ? undefined : body,
+                redirect: 'manual',
+              });
+              const outHeaders = { ...cors };
+              for (const name of ['content-type','content-range','range-unit','location','preference-applied','x-supabase-api-version']) {
+                const value = upstream.headers.get(name); if (value) outHeaders[name] = value;
+              }
+              res.writeHead(upstream.status, outHeaders);
+              const data = Buffer.from(await upstream.arrayBuffer());
+              res.end(data);
+            } catch (error) {
+              res.writeHead(502, { ...cors, 'content-type': 'application/json' });
+              res.end(JSON.stringify({ error: 'proxy_failed' }));
+            }
+          });
+          server.listen(3000, '127.0.0.1', () => console.log('proxy ready'));
+          JS
+          BACKEND="$BACKEND" nohup node /tmp/proxy.mjs >/tmp/proxy.log 2>&1 &
+          for i in {1..30}; do curl -fsS http://127.0.0.1:3000/health >/dev/null && break; sleep 1; done
+          curl -fsS http://127.0.0.1:3000/health
+
+      - name: Verify proxy locally against existing backend
+        env:
+          KEY: sb_publishable_3jTxl7e4GIEbzQgPoUiNzw_OIkOax6w
+        run: |
+          test "$(curl -sS -o /tmp/a -w '%{http_code}' -H "apikey: $KEY" http://127.0.0.1:3000/auth/v1/health)" = "200"
+          test "$(curl -sS -o /tmp/r -w '%{http_code}' -H "apikey: $KEY" http://127.0.0.1:3000/rest/v1/)" = "200"
+
+      - name: Open HTTPS tunnel without Cloudflare
+        run: |
+          nohup ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=30 -o ExitOnForwardFailure=yes -R 80:localhost:3000 nokey@localhost.run >/tmp/lhr.log 2>&1 &
+          for i in {1..90}; do
+            URL=$(grep -oE 'https://[A-Za-z0-9.-]+\.lhr\.life' /tmp/lhr.log | head -1 || true)
+            if [ -n "$URL" ]; then echo "$URL" >/tmp/bridge-url.txt; break; fi
+            sleep 1
+          done
+          test -s /tmp/bridge-url.txt || { cat /tmp/lhr.log; exit 1; }
+          cat /tmp/bridge-url.txt
+
+      - name: Verify public bridge before publishing test course
+        env:
+          KEY: sb_publishable_3jTxl7e4GIEbzQgPoUiNzw_OIkOax6w
+        run: |
+          URL=$(cat /tmp/bridge-url.txt)
+          READY=0
+          for i in {1..60}; do
+            code=$(curl -sS -L --connect-timeout 5 --max-time 15 -o /tmp/h -w '%{http_code}' "$URL/health" || true)
+            if [ "$code" = "200" ]; then READY=1; break; fi
+            sleep 2
+          done
+          test "$READY" = 1
+          test "$(curl -sS -L -o /tmp/a -w '%{http_code}' -H "apikey: $KEY" "$URL/auth/v1/health")" = "200"
+          test "$(curl -sS -L -o /tmp/r -w '%{http_code}' -H "apikey: $KEY" "$URL/rest/v1/")" = "200"
+
+      - name: Publish separate no-VPN course copy
+        run: |
+          URL=$(cat /tmp/bridge-url.txt)
+          rm -rf course-novpn
+          cp -R course course-novpn
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          p=Path('course-novpn/app.js')
+          s=p.read_text()
+          url=Path('/tmp/bridge-url.txt').read_text().strip()
+          s2,n=re.subn(r"const SUPABASE_URL = '[^']+';", f"const SUPABASE_URL = '{url}';", s, count=1)
+          if n != 1: raise SystemExit(f'SUPABASE_URL replacements={n}')
+          p.write_text(s2)
+          PY
+          printf '%s\n' "$URL" > course-novpn/bridge-url.txt
+          printf 'health=200\nauth=200\nrest=200\nbackend=existing-lovable-cloud\n' > course-novpn/bridge-verify.txt
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add course-novpn
+          git commit -m 'Publish separate VPN-free course test via localhost.run bridge'
+          git push
+
+      - name: Keep verified bridge online for testing
+        run: |
+          echo "VPN-free test course bridge: $(cat /tmp/bridge-url.txt)"
+          sleep 20000
