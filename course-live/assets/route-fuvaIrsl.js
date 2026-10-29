@@ -1,1 +1,1 @@
-import{o as e}from"./useSelector-Dq6-RCm6.js";import{_ as t}from"./index-C3f9mKYy.js";var n=e(),r=()=>(0,n.jsx)(t,{});export{r as component};
+import{o as e}from"./useSelector-Dq6-RCm6.js";import{_ as t}from"./index-routing-20261029-v2.js";var n=e(),r=()=>(0,n.jsx)(t,{});export{r as component};
