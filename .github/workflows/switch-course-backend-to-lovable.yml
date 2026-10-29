@@ -1,0 +1,35 @@
+name: Switch course backend to Lovable Cloud
+
+on:
+  push:
+    paths:
+      - '.github/workflows/switch-course-backend-to-lovable.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  switch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Replace blocked Supabase hostname with Lovable Cloud backend
+        run: |
+          set -euxo pipefail
+          old='https://ytolxddmtybtatadhyqj.supabase.co'
+          new='https://c--eb1598e0-facf-4633-be7b-c7b847af05a2-prod.lovable.cloud'
+          grep -F "$old" course/app.js
+          sed -i "s#${old}#${new}#g" course/app.js
+          grep -F "$new" course/app.js
+          if grep -F "$old" course/app.js; then
+            echo 'Old backend URL is still present' >&2
+            exit 1
+          fi
+      - name: Commit course backend switch
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add course/app.js
+          git commit -m 'Use Lovable Cloud backend for no-VPN course access'
+          git push
