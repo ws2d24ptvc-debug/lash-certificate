@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - '.github/workflows/publish-no-vpn-course.yml'
+      - 'live/index.html'
   workflow_dispatch:
 
 permissions:
@@ -48,6 +49,7 @@ jobs:
           test -f /tmp/site/course-live/C422E4CE-6585-453F-B280-676D04845B9F.PNG
           test -f /tmp/site/course-live/C1E03794-5EB4-4FC3-AD6A-21795907586B.PNG
           ! grep -Rqs 'trycloudflare.com' /tmp/site/course-live || { echo 'Tunnel reference found'; exit 1; }
+          grep -q 'course-live' /tmp/site/live/index.html
 
       - name: Upload complete site to GitHub Pages
         uses: actions/upload-pages-artifact@v3
