@@ -1,0 +1,40 @@
+name: Bootstrap Replit core
+
+on:
+  push:
+    paths:
+      - '.github/workflows/bootstrap-replit-core.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download prepared production core
+        env:
+          CORE_URL: "https://sdmntprcentralus.oaiusercontent.com/files/00000000-0cf0-81f5-a9d5-265a90efa5fd/raw?se=2026-10-29T15%3A18%3A13Z&sp=r&sv=2026-02-06&sr=b&scid=74b3d7c2-287e-503e-a286-82fe9eb41f28&skoid=78501c7f-f65d-4e8d-9110-bed29e1beb41&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-10-29T10%3A26%3A36Z&ske=2026-10-30T10%3A26%3A36Z&sks=b&skv=2026-02-06&sig=pOSe/60UDPrNAIMZu1YbSjbb32xmL2kjq38HCi%2BR7R8%3D"
+        run: |
+          curl -fL "$CORE_URL" -o /tmp/core.zip
+          rm -rf replit-core
+          mkdir -p replit-core
+          unzip -q /tmp/core.zip -d replit-core
+          if [ -d replit-core/replit-core ]; then
+            cp -a replit-core/replit-core/. /tmp/core-inner/
+          fi
+      - name: Flatten artifact if needed
+        run: |
+          if [ -d replit-core/replit-core ]; then
+            mv replit-core/replit-core /tmp/replit-core-inner
+            rm -rf replit-core
+            mv /tmp/replit-core-inner replit-core
+          fi
+      - name: Commit core bundle
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add replit-core
+          git diff --cached --quiet || git commit -m "Add production core bundle for Replit"
+          git push
