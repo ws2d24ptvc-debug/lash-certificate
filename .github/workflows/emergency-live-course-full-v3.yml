@@ -1,0 +1,82 @@
+name: Emergency live course full v3
+
+on:
+  push:
+    paths:
+      - '.github/workflows/emergency-live-course-full-v3.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  serve:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download full production build
+        env:
+          FULL_BUILD_URL: "https://sdmntprcentralus.oaiusercontent.com/files/00000000-dae0-81f5-9e4c-f210d2304337/raw?se=2026-10-29T16%3A04%3A49Z&sp=r&sv=2026-02-06&sr=b&scid=e19d4c9a-533f-5a69-8442-a0aee49b40a9&skoid=78501c7f-f65d-4e8d-9110-bed29e1beb41&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-10-29T15%3A25%3A01Z&ske=2026-10-30T15%3A25%3A01Z&sks=b&skv=2026-02-06&sig=Axe23hgQTOuAkpqGOLy5mLc6S3xd5QGsvpRyGdAhxV8%3D"
+        run: |
+          curl -fL "$FULL_BUILD_URL" -o /tmp/course.zip
+          mkdir -p /tmp/course
+          unzip -q /tmp/course.zip -d /tmp/course
+          test -f /tmp/course/server/index.mjs
+      - name: Hide only Module 4 lesson 1 broken image
+        run: |
+          for f in /tmp/course/public/assets/*.css; do
+            echo 'img[alt^="Модуль 4. Урок 1."]{display:none!important}' >> "$f"
+          done
+      - name: Start production site
+        run: |
+          cd /tmp/course
+          PORT=3000 HOST=0.0.0.0 nohup node server/index.mjs >/tmp/course.log 2>&1 &
+          for i in {1..45}; do
+            if curl -fsS http://127.0.0.1:3000/ >/tmp/root.html; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/course.log
+          exit 1
+      - name: Start public tunnel
+        run: |
+          curl -fsSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /tmp/cloudflared
+          chmod +x /tmp/cloudflared
+          nohup /tmp/cloudflared tunnel --url http://127.0.0.1:3000 --no-autoupdate >/tmp/cloudflared.log 2>&1 &
+          for i in {1..60}; do
+            URL=$(grep -oE 'https://[-a-z0-9]+\.trycloudflare\.com' /tmp/cloudflared.log | head -1 || true)
+            if [ -n "$URL" ]; then
+              echo "$URL" >/tmp/tunnel-url.txt
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/cloudflared.log
+          exit 1
+      - name: Verify
+        run: |
+          URL=$(cat /tmp/tunnel-url.txt)
+          curl -fsSL --retry 5 --retry-delay 2 "$URL/" -o /tmp/root-public.html
+          grep -q 'Наращивание ресниц\|LASH ACADEMY' /tmp/root-public.html
+          curl -fsSL --retry 5 "$URL/certificate" -o /tmp/certificate-public.html
+          grep -q 'Сертификат\|certificate' /tmp/certificate-public.html
+          curl -fsSI --retry 5 "$URL/Wewww.PNG" | grep -q '200'
+          grep -R -q 'Модуль 4. Урок 1.' /tmp/course/public/assets/*.css
+      - name: Publish stable bridge
+        run: |
+          URL=$(cat /tmp/tunnel-url.txt)
+          mkdir -p live
+          printf '%s\n' "$URL" > live/url.txt
+          printf 'root=200\ncertificate=200\nphotos=200\nmodule4_lesson1_broken_photo=hidden\n' > live/verify.txt
+          cat > live/index.html <<EOF
+          <!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Lash Academy</title><meta http-equiv="refresh" content="0;url=$URL/"><script>location.replace('$URL/'+location.search+location.hash)</script></head><body style="margin:0;background:#0d0907;color:#f3e5dc;font-family:system-ui;display:grid;place-items:center;min-height:100vh"><p>Открываем курс…</p></body></html>
+          EOF
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add live
+          git diff --cached --quiet || git commit -m "Hide broken photo in Module 4 lesson 1"
+          git push
+      - name: Keep fixed site online
+        run: |
+          echo "Fixed full site live at $(cat /tmp/tunnel-url.txt)"
+          sleep 20000
