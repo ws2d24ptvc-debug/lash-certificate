@@ -1,0 +1,4 @@
+router=index-C3f9mKYy.js
+auth=auth-DlScQRai.js
+basepath=/lash-certificate/course-live
+status=patched
