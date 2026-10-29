@@ -1,0 +1,66 @@
+name: Bust routing cache
+
+on:
+  push:
+    paths:
+      - '.github/workflows/bust-routing-cache.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  bust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Give patched router and auth bundles fresh immutable URLs
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          root = Path('course-live')
+          old_index = 'index-C3f9mKYy.js'
+          new_index = 'index-routing-20261029-v2.js'
+          old_auth = 'auth-DlScQRai.js'
+          new_auth = 'auth-routing-20261029-v2.js'
+
+          src_index = root/'assets'/old_index
+          src_auth = root/'assets'/old_auth
+          assert src_index.exists() and src_auth.exists()
+          assert 'basepath:`/lash-certificate/course-live`' in src_index.read_text() or 'basepath:"/lash-certificate/course-live"' in src_index.read_text()
+          assert '/lash-certificate/course-live/auth' in src_auth.read_text()
+
+          (root/'assets'/new_index).write_text(src_index.read_text())
+          (root/'assets'/new_auth).write_text(src_auth.read_text())
+
+          # Rewrite every textual reference in the static app so the whole module graph uses the fresh URLs.
+          changed = 0
+          for p in list(root.rglob('*.html')) + list((root/'assets').glob('*.js')):
+              s = p.read_text()
+              s2 = s.replace(old_index, new_index).replace(old_auth, new_auth)
+              if s2 != s:
+                  p.write_text(s2)
+                  changed += 1
+          if changed < 2:
+              raise SystemExit(f'Expected multiple references to change, got {changed}')
+
+          # Verify the entry pages now reference fresh bundles.
+          auth_html = (root/'auth'/'index.html').read_text()
+          home_html = (root/'index.html').read_text()
+          assert new_index in auth_html or new_auth in auth_html
+          assert new_index in home_html
+          assert old_index not in auth_html
+          Path('course-live/routing-cache-fix.txt').write_text(
+              f'router={new_index}\nauth={new_auth}\nstatus=fresh-assets\n'
+          )
+          print('rewritten files', changed)
+          PY
+      - name: Commit fresh assets
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add course-live
+          git diff --cached --quiet && exit 0
+          git commit -m "Force fresh routing assets for iPhone Safari"
+          git push
