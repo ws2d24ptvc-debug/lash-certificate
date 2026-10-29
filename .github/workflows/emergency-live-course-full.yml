@@ -15,9 +15,9 @@ jobs:
     timeout-minutes: 350
     steps:
       - uses: actions/checkout@v4
-      - name: Download source-built production course with Module 4 page removed
+      - name: Download source-built production course with Module 4 page removed and Module 7 card fixed
         env:
-          FULL_BUILD_URL: "https://sdmntprcentralus.oaiusercontent.com/files/00000000-01b4-81f5-a1d8-ffa8b20fa486/raw?se=2026-10-29T16%3A31%3A53Z&sp=r&sv=2026-02-06&sr=b&scid=0d09b21e-5bb2-52e9-a803-865203260d01&skoid=78501c7f-f65d-4e8d-9110-bed29e1beb41&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-10-29T15%3A20%3A20Z&ske=2026-10-30T15%3A20%3A20Z&sks=b&skv=2026-02-06&sig=1WR6JHwsnHLrLA2LSA1zK02qXMelGDKzhJdtcj3kEyQ%3D"
+          FULL_BUILD_URL: "https://sdmntprcentralus.oaiusercontent.com/files/00000000-59e4-81f5-8488-705a5b9cd6a5/raw?se=2026-10-29T16%3A42%3A17Z&sp=r&sv=2026-02-06&sr=b&scid=68840924-11d6-52c5-a50e-c54026901452&skoid=78501c7f-f65d-4e8d-9110-bed29e1beb41&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-10-29T15%3A08%3A43Z&ske=2026-10-30T15%3A08%3A43Z&sks=b&skv=2026-02-06&sig=JUviZcWo0p/z05fgww8%2BNWl8CDp8wHkC6Pz4fyBnEO0%3D"
         run: |
           curl -fL "$FULL_BUILD_URL" -o /tmp/course.zip
           rm -rf /tmp/course
@@ -26,7 +26,8 @@ jobs:
           test -f /tmp/course/server/index.mjs
           test -f /tmp/course/public/Wewww.PNG
           test -f /tmp/course/public/IMG_4573.jpg
-      - name: Verify Module 4 has only the remaining lesson and certificate is intact
+          test -f /tmp/course/public/C422E4CE-6585-453F-B280-676D04845B9F.PNG
+      - name: Verify Module 4, Module 7 card and certificate are intact
         run: |
           ! grep -R -Fq 'bezopasnost-sanitariya' /tmp/course/public/assets/course-*.js
           ! grep -R -Fq 'bezopasnost-sanitariya' /tmp/course/public/assets/lesson._lessonId-*.js
@@ -34,6 +35,7 @@ jobs:
           grep -R -Fq 'bezopasnost-pincety' /tmp/course/public/assets/lesson._lessonId-*.js
           grep -R -Fq 'certificate-v13.html' /tmp/course/public/assets/certificate-*.js
           grep -R -Fq 'prodvizhenie-start' /tmp/course/public/assets/certificate-*.js
+          grep -R -Fq 'module7-fresh-20261029' /tmp/course/public/assets/cabinet-*.js
       - name: Start exact clean production site
         run: |
           cd /tmp/course
@@ -76,25 +78,29 @@ jobs:
           grep -q 'Сертификат\|certificate' /tmp/certificate-public.html
           curl -fsSI --retry 5 "$URL/Wewww.PNG" | grep -q '200'
           curl -fsSI --retry 5 "$URL/IMG_4573.jpg" | grep -q '200'
+          curl -fsSI --retry 5 "$URL/C422E4CE-6585-453F-B280-676D04845B9F.PNG?v=module7-fresh-20261029" | grep -q '200'
           ASSET=$(basename $(grep -R -l -F 'bezopasnost-pincety' /tmp/course/public/assets/lesson._lessonId-*.js | head -1))
           curl -fsSL --retry 5 "$URL/assets/$ASSET" -o /tmp/live-lesson.js
           grep -Fq 'bezopasnost-pincety' /tmp/live-lesson.js
           ! grep -Fq 'bezopasnost-sanitariya' /tmp/live-lesson.js
+          CABINET_ASSET=$(basename $(grep -R -l -F 'module7-fresh-20261029' /tmp/course/public/assets/cabinet-*.js | head -1))
+          curl -fsSL --retry 5 "$URL/assets/$CABINET_ASSET" -o /tmp/live-cabinet.js
+          grep -Fq 'module7-fresh-20261029' /tmp/live-cabinet.js
       - name: Publish stable bridge only after all checks pass
         run: |
           URL=$(cat /tmp/tunnel-url.txt)
           mkdir -p live
           printf '%s\n' "$URL" > live/url.txt
-          printf 'root=200\ncertificate=200\nphotos=200\nmodule4_lessons=1\nmodule4_first_page=removed_completely\ncertificate_v13=verified\nsource=clean-production-build\n' > live/verify.txt
+          printf 'root=200\ncertificate=200\nphotos=200\nmodule4_lessons=1\nmodule4_first_page=removed_completely\nmodule7_card=200\nmodule7_cache_busted=yes\ncertificate_v13=verified\nsource=clean-production-build\n' > live/verify.txt
           cat > live/index.html <<EOF
           <!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Lash Academy</title><meta http-equiv="refresh" content="0;url=$URL/"><script>location.replace('$URL/'+location.search+location.hash)</script></head><body style="margin:0;background:#0d0907;color:#f3e5dc;font-family:system-ui;display:grid;place-items:center;min-height:100vh"><p>Открываем курс…</p></body></html>
           EOF
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add live
-          git diff --cached --quiet || git commit -m "Switch live course to one-page Module 4"
+          git diff --cached --quiet || git commit -m "Switch live course to fixed Module 7 card"
           git push
       - name: Keep verified clean site online for today
         run: |
-          echo "Verified one-page Module 4 site live at $(cat /tmp/tunnel-url.txt)"
+          echo "Verified Module 7 fixed site live at $(cat /tmp/tunnel-url.txt)"
           sleep 20000
