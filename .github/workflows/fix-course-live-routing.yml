@@ -39,21 +39,20 @@ jobs:
               pattern = r'(scrollRestoration\s*:\s*!0\s*,\s*defaultPreloadStaleTime\s*:\s*0)'
               s2, count = re.subn(pattern, r'basepath:`/lash-certificate/course-live`,\1', s, count=1)
               if count != 1:
-                  # Some minifiers keep true instead of !0.
                   pattern2 = r'(scrollRestoration\s*:\s*true\s*,\s*defaultPreloadStaleTime\s*:\s*0)'
                   s2, count = re.subn(pattern2, r'basepath:`/lash-certificate/course-live`,\1', s, count=1)
               if count != 1:
                   raise SystemExit('Could not find the router options insertion point')
               rp.write_text(s2)
 
-          # 2) Keep email confirmation, reset-password and Google OAuth callbacks inside course-live.
+          # 2) The page-level auth bundle contains the visible login UI and callback URLs.
           auth_hits = []
           for p in js_files:
               s = p.read_text()
-              if 'signInWithPassword' in s and 'resetPasswordForEmail' in s:
+              if 'signInWithPassword' in s and 'resetPasswordForEmail' in s and 'Личный кабинет' in s:
                   auth_hits.append(p)
           if len(auth_hits) != 1:
-              raise SystemExit(f'Expected exactly one auth bundle, found: {[p.name for p in auth_hits]}')
+              raise SystemExit(f'Expected exactly one page auth bundle, found: {[p.name for p in auth_hits]}')
 
           ap = auth_hits[0]
           a = ap.read_text()
@@ -61,7 +60,7 @@ jobs:
           a = a.replace('window.location.origin+`/reset-password`', 'window.location.origin+`/lash-certificate/course-live/reset-password`')
           ap.write_text(a)
 
-          # Verification: no root callbacks remain and router has the basepath.
+          # Verification.
           rs = rp.read_text()
           aa = ap.read_text()
           assert 'basepath:`/lash-certificate/course-live`' in rs or 'basepath:"/lash-certificate/course-live"' in rs
