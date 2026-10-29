@@ -17,7 +17,7 @@ jobs:
         uses: actions/checkout@v4
       - name: Download encrypted course export
         env:
-          EXPORT_URL: 'https://sdmntprcentralus.oaiusercontent.com/files/00000000-c8dc-81f5-a929-a6d33bd3c8d6/raw?se=2026-10-29T14%3A51%3A33Z&sp=r&sv=2026-02-06&sr=b&scid=77c8babc-09c4-5ed6-bf41-d326f07340f1&skoid=78501c7f-f65d-4e8d-9110-bed29e1beb41&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-10-29T13%3A17%3A53Z&ske=2026-10-30T13%3A17%3A53Z&sks=b&skv=2026-02-06&sig=9JOrCOA48g0vxs5z8l6z0Is/yPU6ASaX3E8KvPXvw/M%3D'
+          EXPORT_URL: 'https://sdmntprcentralus.oaiusercontent.com/files/00000000-f4cc-81f5-b549-4c70bb9efecc/raw?se=2026-10-29T14%3A56%3A17Z&sp=r&sv=2026-02-06&sr=b&scid=766cd973-d3a5-5e70-9b70-bb23c57fb314&skoid=78501c7f-f65d-4e8d-9110-bed29e1beb41&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-10-29T13%3A03%3A17Z&ske=2026-10-30T13%3A03%3A17Z&sks=b&skv=2026-02-06&sig=v0us7LYu53FzdfRiVPPM1mN1gYDVrBa5lZmnqEMiREo%3D'
         run: |
           curl -fL "$EXPORT_URL" -o /tmp/course-export.zip
           rm -rf /tmp/course-export
@@ -25,18 +25,18 @@ jobs:
           unzip -q /tmp/course-export.zip -d /tmp/course-export
           python - <<'PY'
           import json
-          m=json.load(open('/tmp/course-export/course-meta.json'))
           e=json.load(open('/tmp/course-export/content.enc.json'))
-          assert len(m['modules']) == 14
-          assert sum(len(x['lessons']) for x in m['modules']) == 36
           assert e['algorithm'] == 'AES-GCM' and len(e['data']) > 1000
-          print('course export verified')
+          print('encrypted course export verified')
           PY
-      - name: Upload files through GitHub API
+      - name: Upload encrypted content through GitHub API
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          META=$(base64 -w0 /tmp/course-export/course-meta.json)
-          CONTENT=$(base64 -w0 /tmp/course-export/content.enc.json)
-          gh api --method PUT "repos/${GITHUB_REPOSITORY}/contents/course/course-meta.json" -f message='Sync course metadata' -f content="$META" -f branch=main
-          gh api --method PUT "repos/${GITHUB_REPOSITORY}/contents/course/content.enc.json" -f message='Sync encrypted course content' -f content="$CONTENT" -f branch=main
+          python - <<'PY'
+          import base64, json
+          raw=open('/tmp/course-export/content.enc.json','rb').read()
+          payload={'message':'Sync encrypted course content','content':base64.b64encode(raw).decode(),'branch':'main'}
+          open('/tmp/content-payload.json','w').write(json.dumps(payload))
+          PY
+          gh api --method PUT "repos/${GITHUB_REPOSITORY}/contents/course/content.enc.json" --input /tmp/content-payload.json
