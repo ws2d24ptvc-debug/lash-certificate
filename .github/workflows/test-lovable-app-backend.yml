@@ -1,0 +1,30 @@
+name: Test Lovable app backend paths
+
+on:
+  push:
+    paths:
+      - '.github/workflows/test-lovable-app-backend.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test published lovable.app backend paths
+        env:
+          KEY: sb_publishable_3jTxl7e4GIEbzQgPoUiNzw_OIkOax6w
+        run: |
+          set +e
+          BASE='https://lash-course-vera.lovable.app'
+          a=$(curl -sS -L --connect-timeout 10 --max-time 20 -o /tmp/auth -w '%{http_code}' -H "apikey: $KEY" "$BASE/auth/v1/health" 2>/tmp/auth_err)
+          r=$(curl -sS -L --connect-timeout 10 --max-time 20 -o /tmp/rest -w '%{http_code}' -H "apikey: $KEY" "$BASE/rest/v1/" 2>/tmp/rest_err)
+          printf 'auth=%s\nrest=%s\nauth_body=%s\nrest_body=%s\nauth_err=%s\nrest_err=%s\n' "$a" "$r" "$(head -c 300 /tmp/auth | tr '\n' ' ')" "$(head -c 300 /tmp/rest | tr '\n' ' ')" "$(tr '\n' ' ' </tmp/auth_err)" "$(tr '\n' ' ' </tmp/rest_err)" > lovable-app-backend-test.txt
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add lovable-app-backend-test.txt
+          git commit -m 'Record Lovable app backend path test' || true
+          git push
