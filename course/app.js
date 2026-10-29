@@ -1,6 +1,6 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/+esm';
 
-const SUPABASE_URL = 'https://ytolxddmtybtatadhyqj.supabase.co';
+const SUPABASE_URL = 'https://c--eb1598e0-facf-4633-be7b-c7b847af05a2-prod.lovable.cloud';
 const SUPABASE_KEY = 'sb_publishable_3jTxl7e4GIEbzQgPoUiNzw_OIkOax6w';
 const CERTIFICATE_URL = 'https://ws2d24ptvc-debug.github.io/lash-certificate/certificate-v13.html';
 const SUPPORT_EMAIL = 'lashcourse.support@gmail.com';
