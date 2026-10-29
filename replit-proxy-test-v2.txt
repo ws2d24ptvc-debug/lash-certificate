@@ -1,0 +1,9 @@
+health=404
+auth=404
+rest=404
+health_body=Backend Not Configured
+auth_body=Backend Not Configured
+rest_body=Backend Not Configured
+health_err=
+auth_err=
+rest_err=
