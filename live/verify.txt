@@ -1,8 +1,4 @@
-url=https://transformation-coupon-approx-panel.trycloudflare.com
-root_code=200
-root_match=yes
-asset=
-asset_code=missing
-image_code=500
-certificate_code=200
-certificate_match=yes
+root=200
+certificate=200
+photos=200
+source=full-production-build
