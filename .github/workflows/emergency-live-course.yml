@@ -1,0 +1,60 @@
+name: Emergency live course
+
+on:
+  push:
+    paths:
+      - '.github/workflows/emergency-live-course.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  serve:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start production course core
+        run: |
+          cd replit-core
+          PORT=3001 HOST=127.0.0.1 nohup node server/index.mjs >/tmp/course.log 2>&1 &
+          PORT=3000 nohup node media-proxy.mjs >/tmp/proxy.log 2>&1 &
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:3000/ >/tmp/root.html; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/course.log /tmp/proxy.log
+          exit 1
+      - name: Start secure public tunnel
+        run: |
+          curl -fsSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /tmp/cloudflared
+          chmod +x /tmp/cloudflared
+          nohup /tmp/cloudflared tunnel --url http://127.0.0.1:3000 --no-autoupdate >/tmp/cloudflared.log 2>&1 &
+          for i in {1..60}; do
+            URL=$(grep -oE 'https://[-a-z0-9]+\.trycloudflare\.com' /tmp/cloudflared.log | head -1 || true)
+            if [ -n "$URL" ]; then
+              echo "$URL" >/tmp/tunnel-url.txt
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/cloudflared.log
+          exit 1
+      - name: Publish stable bridge URL
+        run: |
+          URL=$(cat /tmp/tunnel-url.txt)
+          mkdir -p live
+          printf '%s\n' "$URL" > live/url.txt
+          cat > live/index.html <<EOF
+          <!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Lash Academy</title><meta http-equiv="refresh" content="0;url=$URL/"><script>location.replace('$URL/'+location.search+location.hash)</script></head><body style="margin:0;background:#0d0907;color:#f3e5dc;font-family:system-ui;display:grid;place-items:center;min-height:100vh"><p>Открываем курс…</p></body></html>
+          EOF
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add live
+          git diff --cached --quiet || git commit -m "Update emergency live course bridge"
+          git push
+      - name: Keep site online for today
+        run: |
+          echo "Live at $(cat /tmp/tunnel-url.txt)"
+          sleep 20000
