@@ -1,0 +1,35 @@
+name: Test auth backend domain
+
+on:
+  push:
+    paths:
+      - '.github/workflows/test-auth-backend.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test default and Lovable backend endpoints
+        env:
+          KEY: sb_publishable_3jTxl7e4GIEbzQgPoUiNzw_OIkOax6w
+        run: |
+          set +e
+          DEFAULT='https://ytolxddmtybtatadhyqj.supabase.co'
+          LOVABLE='https://c--eb1598e0-facf-4633-be7b-c7b847af05a2-prod.lovable.cloud'
+          d_auth=$(curl -sS -L --connect-timeout 10 --max-time 20 -o /tmp/d_auth -w '%{http_code}' -H "apikey: $KEY" "$DEFAULT/auth/v1/health" 2>/tmp/d_auth_err)
+          d_rest=$(curl -sS -L --connect-timeout 10 --max-time 20 -o /tmp/d_rest -w '%{http_code}' -H "apikey: $KEY" "$DEFAULT/rest/v1/" 2>/tmp/d_rest_err)
+          l_auth=$(curl -sS -L --connect-timeout 10 --max-time 20 -o /tmp/l_auth -w '%{http_code}' -H "apikey: $KEY" "$LOVABLE/auth/v1/health" 2>/tmp/l_auth_err)
+          l_rest=$(curl -sS -L --connect-timeout 10 --max-time 20 -o /tmp/l_rest -w '%{http_code}' -H "apikey: $KEY" "$LOVABLE/rest/v1/" 2>/tmp/l_rest_err)
+          printf 'default_auth=%s\ndefault_rest=%s\nlovable_auth=%s\nlovable_rest=%s\n' "$d_auth" "$d_rest" "$l_auth" "$l_rest" > backend-test.txt
+          printf 'default_auth_err=%s\n' "$(tr '\n' ' ' </tmp/d_auth_err)" >> backend-test.txt
+          printf 'default_rest_err=%s\n' "$(tr '\n' ' ' </tmp/d_rest_err)" >> backend-test.txt
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add backend-test.txt
+          git commit -m 'Record auth backend connectivity test' || true
+          git push
