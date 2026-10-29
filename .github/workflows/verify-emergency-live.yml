@@ -1,0 +1,28 @@
+name: Verify emergency live course
+
+on:
+  push:
+    paths:
+      - '.github/workflows/verify-emergency-live.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify public course tunnel
+        run: |
+          URL=$(cat live/url.txt)
+          echo "Testing $URL"
+          curl -fsSL --retry 5 --retry-delay 2 "$URL/" -o /tmp/root.html
+          grep -q 'Наращивание ресниц\|LASH ACADEMY' /tmp/root.html
+          ASSET=$(grep -oE '/assets/index-[A-Za-z0-9_-]+\.js' /tmp/root.html | head -1)
+          test -n "$ASSET"
+          curl -fsSI --retry 5 "$URL$ASSET" | grep -q '200'
+          curl -fsSI --retry 5 "$URL/Wewww.PNG" | grep -q '200'
+          curl -fsSL --retry 5 "$URL/certificate" -o /tmp/certificate.html
+          grep -q 'Сертификат\|certificate' /tmp/certificate.html
+          echo "Emergency live course verified"
