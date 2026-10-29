@@ -51,15 +51,49 @@ function todayRu(){const d=new Date();return String(d.getDate()).padStart(2,'0')
 function fullName(){return (firstName.value.trim()+' '+lastName.value.trim()).trim()}
 function fitFont(text,maxWidth,startSize,minSize){let size=startSize;while(size>minSize){ctx.font=`italic ${size}px "Snell Roundhand","Apple Chancery","Segoe Script","Brush Script MT",cursive`;if(ctx.measureText(text).width<=maxWidth)break;size-=2}return size}
 function draw(){
-  ctx.clearRect(0,0,1491,1055);ctx.drawImage(img,0,0,1491,1055);
-  ctx.save();ctx.filter='blur(32px)';ctx.drawImage(img,360,346,790,100,360,346,790,100);ctx.restore();
-  const g=ctx.createLinearGradient(360,0,1150,0);g.addColorStop(0,'rgba(45,27,19,.42)');g.addColorStop(.55,'rgba(43,26,19,.50)');g.addColorStop(1,'rgba(61,36,25,.34)');
-  ctx.fillStyle=g;ctx.fillRect(360,350,790,96);
-  const name=fullName()||'Имя Фамилия',size=fitFont(name,720,78,48);
-  ctx.textAlign='center';ctx.textBaseline='middle';ctx.font=`italic ${size}px "Snell Roundhand","Apple Chancery","Segoe Script","Brush Script MT",cursive`;ctx.fillStyle='#f6e1cf';ctx.shadowColor='rgba(0,0,0,.35)';ctx.shadowBlur=2;ctx.fillText(name,748,405);ctx.shadowBlur=0;
-  ctx.font='500 23px -apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif';ctx.fillStyle='#4b2c20';ctx.textAlign='center';ctx.textBaseline='alphabetic';ctx.fillText(todayRu(),365,890);
+  ctx.clearRect(0,0,1491,1055);
+  ctx.drawImage(img,0,0,1491,1055);
+
+  // Полностью закрываем напечатанную на исходнике надпись «Имя Фамилия».
+  // Поле остаётся пустым до ввода данных пользователем.
+  const cover=ctx.createLinearGradient(410,0,1080,0);
+  cover.addColorStop(0,'rgb(55,34,20)');
+  cover.addColorStop(.35,'rgb(45,30,20)');
+  cover.addColorStop(.68,'rgb(52,35,25)');
+  cover.addColorStop(1,'rgb(92,63,47)');
+  ctx.fillStyle=cover;
+  ctx.fillRect(405,350,690,102);
+
+  // Восстанавливаем тонкую линию под именем.
+  ctx.beginPath();
+  ctx.moveTo(324,454);
+  ctx.lineTo(1126,454);
+  ctx.strokeStyle='rgba(238,211,190,.88)';
+  ctx.lineWidth=2;
+  ctx.stroke();
+
+  const name=fullName();
+  if(name){
+    const size=fitFont(name,650,78,46);
+    ctx.textAlign='center';
+    ctx.textBaseline='middle';
+    ctx.font=`italic ${size}px "Snell Roundhand","Apple Chancery","Segoe Script","Brush Script MT",cursive`;
+    ctx.fillStyle='#f6e1cf';
+    ctx.shadowColor='rgba(0,0,0,.35)';
+    ctx.shadowBlur=2;
+    ctx.fillText(name,748,405);
+    ctx.shadowBlur=0;
+  }
+
+  ctx.font='500 23px -apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif';
+  ctx.fillStyle='#4b2c20';
+  ctx.textAlign='center';
+  ctx.textBaseline='alphabetic';
+  ctx.fillText(todayRu(),365,890);
 }
-img.onload=draw;img.onerror=()=>{statusEl.textContent='Не удалось загрузить изображение сертификата.'};[firstName,lastName].forEach(el=>el.addEventListener('input',draw));
+img.onload=draw;
+img.onerror=()=>{statusEl.textContent='Не удалось загрузить изображение сертификата.'};
+[firstName,lastName].forEach(el=>el.addEventListener('input',draw));
 saveBtn.addEventListener('click',()=>{const name=fullName();if(!name){statusEl.textContent='Введите имя и фамилию получателя.';firstName.focus();return}draw();statusEl.textContent='Подготавливаю сертификат…';canvas.toBlob(async blob=>{if(!blob){statusEl.textContent='Не удалось подготовить изображение.';return}const safe=name.replace(/[^a-zA-Zа-яА-ЯёЁ0-9_-]+/g,'-').replace(/^-+|-+$/g,'');const file=new File([blob],`certificate-${safe||'lash-academy'}.png`,{type:'image/png'});try{if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:'Сертификат LASH ACADEMY'});statusEl.textContent='Готово.';return}}catch(e){if(e&&e.name==='AbortError'){statusEl.textContent='Сохранение отменено.';return}}const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=file.name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);statusEl.textContent='Сертификат сохранён.'},'image/png',1)});
 </script>
 </body>
