@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: write
+  actions: read
 
 jobs:
   materialize:
@@ -16,31 +17,42 @@ jobs:
       - name: Checkout Pages repository
         uses: actions/checkout@v4
 
-      - name: Download full no-VPN course package
+      - name: Restore successful full no-VPN Pages artifact
         env:
-          COURSE_PACKAGE_URL: "https://sdmntprcentralus.oaiusercontent.com/files/00000000-f6b0-81f5-b7e2-1d4f081290c2/raw?se=2026-10-29T18%3A50%3A14Z&sp=r&sv=2026-02-06&sr=b&scid=eb0810df-a8d1-5152-a36a-62c5a5df75a3&skoid=78501c7f-f65d-4e8d-9110-bed29e1beb41&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-10-29T15%3A17%3A53Z&ske=2026-10-30T15%3A17%3A53Z&sks=b&skv=2026-02-06&sig=1cx2TD0tsnBy6KH/LUn0iOkDVcsVSatlzEZxQ5WjZUw%3D"
+          GH_TOKEN: ${{ github.token }}
+          ARTIFACT_ID: "12923528582"
         run: |
-          rm -rf /tmp/course-package course-live
-          mkdir -p /tmp/course-package course-live
-          curl -fL --retry 5 --retry-delay 2 "$COURSE_PACKAGE_URL" -o /tmp/course.zip
-          unzip -q /tmp/course.zip -d /tmp/course-package
-          if [ -f /tmp/course-package/index.html ]; then
-            cp -a /tmp/course-package/. course-live/
+          rm -rf /tmp/pages-artifact /tmp/full-site course-live
+          mkdir -p /tmp/pages-artifact /tmp/full-site
+          curl -fL --retry 5 --retry-delay 2 \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${ARTIFACT_ID}/zip" \
+            -o /tmp/pages.zip
+          unzip -q /tmp/pages.zip -d /tmp/pages-artifact
+          ARCHIVE=$(find /tmp/pages-artifact -type f \( -name '*.tar' -o -name '*.tar.gz' -o -name '*.tgz' \) | head -1)
+          test -n "$ARCHIVE"
+          if file "$ARCHIVE" | grep -qi gzip; then
+            tar -xzf "$ARCHIVE" -C /tmp/full-site
           else
-            ROOT=$(find /tmp/course-package -mindepth 1 -maxdepth 2 -type f -name index.html -printf '%h\n' | head -1)
-            test -n "$ROOT"
-            cp -a "$ROOT"/. course-live/
+            tar -xf "$ARCHIVE" -C /tmp/full-site
           fi
-          test -s course-live/index.html
-          test -f course-live/C422E4CE-6585-453F-B280-676D04845B9F.PNG
-          test -f course-live/C1E03794-5EB4-4FC3-AD6A-21795907586B.PNG
-          ! grep -Rqs 'trycloudflare.com' course-live || { echo 'Tunnel reference found'; exit 1; }
+          test -s /tmp/full-site/course-live/index.html
+          test -f /tmp/full-site/course-live/C422E4CE-6585-453F-B280-676D04845B9F.PNG
+          test -f /tmp/full-site/course-live/C1E03794-5EB4-4FC3-AD6A-21795907586B.PNG
+          ! grep -Rqs 'trycloudflare.com' /tmp/full-site/course-live || { echo 'Tunnel reference found'; exit 1; }
+          cp -a /tmp/full-site/course-live ./course-live
+          touch .nojekyll
+          cat > live/index.html <<'EOF'
+          <!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Lash Academy</title><meta http-equiv="refresh" content="0;url=https://ws2d24ptvc-debug.github.io/lash-certificate/course-live/"><script>location.replace('https://ws2d24ptvc-debug.github.io/lash-certificate/course-live/'+location.search+location.hash)</script></head><body style="margin:0;background:#0d0907;color:#f3e5dc;font-family:system-ui;display:grid;place-items:center;min-height:100vh"><p>Открываем курс…</p></body></html>
+          EOF
 
       - name: Save full course permanently in repository
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A course-live
+          git add -A course-live live/index.html .nojekyll
           git diff --cached --quiet && exit 0
           git commit -m "Persist full no-VPN course on GitHub Pages"
           git push
