@@ -1,0 +1,60 @@
+name: Enable direct no-VPN course
+
+on:
+  push:
+    paths:
+      - '.github/workflows/enable-direct-course.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  enable:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Enable direct GitHub Pages course and correct visible progress
+        run: |
+          cat > course/index.html <<'EOF'
+          <!doctype html>
+          <html lang="ru">
+          <head>
+            <meta charset="UTF-8" />
+            <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+            <meta name="theme-color" content="#0d0907" />
+            <meta name="robots" content="noindex" />
+            <title>Наращивание ресниц с нуля — Вера Лушина</title>
+            <link rel="stylesheet" href="./styles.css?v=direct-20261029" />
+          </head>
+          <body>
+            <div id="app" class="boot">Загрузка курса…</div>
+            <script type="module" src="./app.js?v=direct-20261029"></script>
+          </body>
+          </html>
+          EOF
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('course/app.js')
+          s=p.read_text()
+          old="""function allLessons() {\n  return (state.meta?.modules ?? []).flatMap((m) => m.lessons);\n}\n"""
+          new="""const NON_STUDENT_LESSONS = new Set(['osnovy-cikl', 'osnovy-protivopokazaniya', 'prodvizhenie-start', 'bezopasnost-sanitariya']);\n\nfunction studentLessons(lessons = []) {\n  return lessons.filter((l) => !NON_STUDENT_LESSONS.has(l.id));\n}\n\nfunction allLessons() {\n  return (state.meta?.modules ?? []).flatMap((m) => studentLessons(m.lessons));\n}\n"""
+          if old not in s:
+              raise SystemExit('allLessons target not found')
+          s=s.replace(old,new,1)
+          old2="""  const moduleHtml = state.meta.modules.map((m) => {\n    const mp = progressFor(student.completed, m.lessons);\n    const lessons = m.lessons.map((l) => {\n"""
+          new2="""  const moduleHtml = state.meta.modules.map((m) => {\n    const visibleLessons = studentLessons(m.lessons);\n    if (!visibleLessons.length) return '';\n    const mp = progressFor(student.completed, visibleLessons);\n    const lessons = visibleLessons.map((l) => {\n"""
+          if old2 not in s:
+              raise SystemExit('module target not found')
+          s=s.replace(old2,new2,1)
+          old3="""  const lesson = lessons[index];\n  if (!lesson) throw new Error('Урок не найден.');\n"""
+          new3="""  const lesson = lessons[index];\n  if (!lesson || NON_STUDENT_LESSONS.has(id)) throw new Error('Урок не найден.');\n"""
+          if old3 in s:
+              s=s.replace(old3,new3,1)
+          p.write_text(s)
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add course/index.html course/app.js
+          git commit -m "Serve course directly on GitHub Pages without VPN tunnel"
+          git push
