@@ -1,0 +1,6 @@
+default_auth=200
+default_rest=401
+lovable_auth=200
+lovable_rest=200
+default_auth_err=
+default_rest_err=
