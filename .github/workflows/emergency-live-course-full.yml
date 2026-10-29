@@ -15,16 +15,24 @@ jobs:
     timeout-minutes: 350
     steps:
       - uses: actions/checkout@v4
-      - name: Download full production build with all original photos
+      - name: Download clean source-built production course
         env:
-          FULL_BUILD_URL: "https://sdmntprcentralus.oaiusercontent.com/files/00000000-f73c-81f5-84cf-3f65e10125ca/raw?se=2026-10-29T15%3A30%3A39Z&sp=r&sv=2026-02-06&sr=b&scid=da58d723-de93-5fa2-89f8-e3a493ea63d9&skoid=78501c7f-f65d-4e8d-9110-bed29e1beb41&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-10-29T15%3A08%3A28Z&ske=2026-10-30T15%3A08%3A28Z&sks=b&skv=2026-02-06&sig=0zO%2BKO5UtHEJkB4NOXtSGiJEfii2PF6Ctg%2B9I/SgP6Q%3D"
+          FULL_BUILD_URL: "https://sdmntprcentralus.oaiusercontent.com/files/00000000-75b4-81f5-b66d-b5ad258e630a/raw?se=2026-10-29T16%3A22%3A53Z&sp=r&sv=2026-02-06&sr=b&scid=a1eec293-d6a7-5ae7-b25e-a8f9f4ee591b&skoid=78501c7f-f65d-4e8d-9110-bed29e1beb41&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-10-29T15%3A20%3A34Z&ske=2026-10-30T15%3A20%3A34Z&sks=b&skv=2026-02-06&sig=z/3wTAr1vbCLMuZPy8EXqcuomkMCxonc70Mh%2BcSeC6g%3D"
         run: |
           curl -fL "$FULL_BUILD_URL" -o /tmp/course.zip
+          rm -rf /tmp/course
           mkdir -p /tmp/course
           unzip -q /tmp/course.zip -d /tmp/course
           test -f /tmp/course/server/index.mjs
           test -f /tmp/course/public/Wewww.PNG
-      - name: Start exact production site
+          test -f /tmp/course/public/IMG_4573.jpg
+      - name: Verify source fix and certificate before launch
+        run: |
+          grep -R -Fq '!(e===4&&t===`bezopasnost-sanitariya`)' /tmp/course/public/assets/lesson._lessonId-*.js
+          grep -R -Fq '!(moduleNumber === 4 && lessonId === "bezopasnost-sanitariya")' /tmp/course/server/_ssr/lesson._lessonId-*.mjs
+          grep -R -Fq 'certificate-v13.html' /tmp/course/public/assets/certificate-*.js
+          grep -R -Fq 'prodvizhenie-start' /tmp/course/public/assets/certificate-*.js
+      - name: Start exact clean production site
         run: |
           cd /tmp/course
           PORT=3000 HOST=0.0.0.0 nohup node server/index.mjs >/tmp/course.log 2>&1 &
@@ -49,30 +57,41 @@ jobs:
           done
           cat /tmp/cloudflared.log
           exit 1
-      - name: Verify all-important pages and photos before publishing bridge
+      - name: Wait for DNS and verify public site
         run: |
           URL=$(cat /tmp/tunnel-url.txt)
-          curl -fsSL --retry 5 --retry-delay 2 "$URL/" -o /tmp/root-public.html
+          OK=0
+          for i in {1..60}; do
+            if curl -fsSL --connect-timeout 5 "$URL/" -o /tmp/root-public.html; then
+              OK=1
+              break
+            fi
+            sleep 2
+          done
+          test "$OK" = 1
           grep -q 'Наращивание ресниц\|LASH ACADEMY' /tmp/root-public.html
-          curl -fsSL --retry 5 "$URL/certificate" -o /tmp/certificate-public.html
+          curl -fsSL --retry 5 --retry-delay 2 "$URL/certificate" -o /tmp/certificate-public.html
           grep -q 'Сертификат\|certificate' /tmp/certificate-public.html
           curl -fsSI --retry 5 "$URL/Wewww.PNG" | grep -q '200'
           curl -fsSI --retry 5 "$URL/IMG_4573.jpg" | grep -q '200'
-      - name: Publish stable bridge URL only after verification succeeds
+          ASSET=$(basename $(grep -R -l -F '!(e===4&&t===`bezopasnost-sanitariya`)' /tmp/course/public/assets/lesson._lessonId-*.js | head -1))
+          curl -fsSL --retry 5 "$URL/assets/$ASSET" -o /tmp/live-lesson.js
+          grep -Fq '!(e===4&&t===`bezopasnost-sanitariya`)' /tmp/live-lesson.js
+      - name: Publish stable bridge only after all checks pass
         run: |
           URL=$(cat /tmp/tunnel-url.txt)
           mkdir -p live
           printf '%s\n' "$URL" > live/url.txt
-          printf 'root=200\ncertificate=200\nphotos=200\nsource=full-production-build\n' > live/verify.txt
+          printf 'root=200\ncertificate=200\nphotos=200\nmodule4_lesson1_image=removed_in_source\ncertificate_v13=verified\nsource=clean-production-build\n' > live/verify.txt
           cat > live/index.html <<EOF
           <!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Lash Academy</title><meta http-equiv="refresh" content="0;url=$URL/"><script>location.replace('$URL/'+location.search+location.hash)</script></head><body style="margin:0;background:#0d0907;color:#f3e5dc;font-family:system-ui;display:grid;place-items:center;min-height:100vh"><p>Открываем курс…</p></body></html>
           EOF
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add live
-          git diff --cached --quiet || git commit -m "Switch emergency bridge to verified full production build"
+          git diff --cached --quiet || git commit -m "Switch live course to clean source-built Module 4 fix"
           git push
-      - name: Keep verified full site online for today
+      - name: Keep verified clean site online for today
         run: |
-          echo "Verified full site live at $(cat /tmp/tunnel-url.txt)"
+          echo "Verified clean site live at $(cat /tmp/tunnel-url.txt)"
           sleep 20000
