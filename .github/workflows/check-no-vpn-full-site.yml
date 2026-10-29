@@ -1,0 +1,46 @@
+name: Verify no-VPN full site
+
+on:
+  push:
+    paths:
+      - '.github/workflows/check-no-vpn-full-site.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check GitHub Pages course routes and auth backends
+        shell: bash
+        run: |
+          set -u
+          COURSE='https://ws2d24ptvc-debug.github.io/lash-certificate/course-live/'
+          AUTH='https://ws2d24ptvc-debug.github.io/lash-certificate/course-live/auth/'
+          CABINET='https://ws2d24ptvc-debug.github.io/lash-certificate/course-live/cabinet/'
+          CERT='https://ws2d24ptvc-debug.github.io/lash-certificate/course-live/certificate/'
+          LOVE='https://c--eb1598e0-facf-4633-be7b-c7b847af05a2-prod.lovable.cloud/auth/v1/health'
+          DIRECT='https://ytolxddmtybtatadhyqj.supabase.co/auth/v1/health'
+          check() { curl -L -sS --connect-timeout 10 --max-time 30 -o /tmp/body -w '%{http_code}' "$1" || printf '000'; }
+          {
+            echo "course=$(check "$COURSE")"
+            echo "auth=$(check "$AUTH")"
+            echo "cabinet=$(check "$CABINET")"
+            echo "certificate=$(check "$CERT")"
+            echo "lovable_auth=$(check "$LOVE")"
+            echo "direct_supabase_auth=$(check "$DIRECT")"
+            echo "checked_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          } > no-vpn-check.txt
+          cat no-vpn-check.txt
+
+      - name: Save verification result
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add no-vpn-check.txt
+          git diff --cached --quiet || git commit -m 'Record no-VPN route verification'
+          git push
