@@ -26,7 +26,7 @@
 <script>
 const c=document.getElementById('certificate'),ctx=c.getContext('2d');
 const first=document.getElementById('firstName'),last=document.getElementById('lastName'),statusEl=document.getElementById('status');
-const img=new Image();img.src='certificate-clean.webp?v=1';
+const img=new Image();img.src='certificate-clean.webp?v=6c8f98b4';
 function full(){return (first.value.trim()+' '+last.value.trim()).trim()}
 function dateRu(){const d=new Date();return String(d.getDate()).padStart(2,'0')+'.'+String(d.getMonth()+1).padStart(2,'0')+'.'+d.getFullYear()}
 function fit(text,max,start,min){let s=start;while(s>min){ctx.font=`italic ${s}px "Snell Roundhand","Apple Chancery","Segoe Script","Brush Script MT",Georgia,serif`;if(ctx.measureText(text).width<=max)break;s-=2}return s}
