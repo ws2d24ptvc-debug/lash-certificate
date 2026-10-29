@@ -1,4 +1,4 @@
 root=200
 certificate=200
 photos=200
-source=full-production-build
+module4_lesson1_broken_photo=hidden
