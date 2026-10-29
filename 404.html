@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>LASH ACADEMY</title>
+  <style>html,body{margin:0;min-height:100%;background:#080706;color:#f5e9df;font-family:system-ui,sans-serif}body{display:grid;place-items:center}.msg{opacity:.75}</style>
+</head>
+<body>
+  <div class="msg">Открываем курс…</div>
+  <script>
+  (async function () {
+    const prefix = '/lash-certificate/course-live';
+    if (!location.pathname.startsWith(prefix)) {
+      location.replace(prefix + '/');
+      return;
+    }
+    try {
+      const response = await fetch(prefix + '/index.html?fallback=20261029-1', { cache: 'no-store' });
+      if (!response.ok) throw new Error('shell ' + response.status);
+      const html = await response.text();
+      document.open();
+      document.write(html);
+      document.close();
+    } catch (error) {
+      document.body.innerHTML = '<div class="msg">Не удалось открыть страницу курса. Вернитесь на главную.</div>';
+    }
+  })();
+  </script>
+</body>
+</html>
