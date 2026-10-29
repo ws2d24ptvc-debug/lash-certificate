@@ -45,72 +45,57 @@ button:active{transform:scale(.99)}
 const canvas=document.getElementById('certificate'),ctx=canvas.getContext('2d');
 const firstName=document.getElementById('firstName'),lastName=document.getElementById('lastName');
 const saveBtn=document.getElementById('saveBtn'),statusEl=document.getElementById('status');
-const base=document.createElement('canvas'); base.width=1491; base.height=1055;
-const bctx=base.getContext('2d',{willReadFrequently:true});
 const img=new Image();
 img.src='EB728164-D014-4352-812A-DEC026E487DA.PNG';
 
-const COEF=[
- [152.235759,96.873544,38.598477,-73.941813,55.231679,-75.803213,-49.450996,-57.810385,-3.117841,40.554264,58.566826,-21.548560,4.611603,-3.334679,59.866127],
- [110.043249,65.622766,15.177051,-60.692092,36.189625,-71.187613,-31.438879,-28.099223,0.206905,29.687498,44.617917,-11.890300,12.560661,-0.835342,48.327050],
- [85.253329,50.901029,4.412775,-49.319073,27.910643,-65.727190,-21.171925,-11.208547,2.571653,21.814027,33.717133,-9.349506,17.286618,1.040259,38.962435]
-];
-
-function clamp(v,a=0,b=255){return Math.max(a,Math.min(b,v))}
-function poly(c,x,y){
-  const t=[1,x,y,x*x,x*y,y*y,x*x*x,x*x*y,x*y*y,y*y*y,x*x*x*x,x*x*x*y,x*x*y*y,x*y*y*y,y*y*y*y];
-  let s=0; for(let i=0;i<15;i++) s+=c[i]*t[i]; return clamp(s);
-}
-function cleanNameArea(){
-  const x0=315,x1=1145,y0=332,y1=482,cx=730,cy=407,sx=415,sy=75;
-  const im=bctx.getImageData(x0,y0,x1-x0,y1-y0);
-  const d=im.data,w=x1-x0,h=y1-y0;
-  for(let yy=0;yy<h;yy++){
-    const ayTop=Math.min(1,yy/18);
-    const ayBottom=yy>=h-4 ? Math.max(0,(h-1-yy)/3) : 1;
-    const ay=ayTop*ayBottom;
-    const yn=(y0+yy-cy)/sy;
-    for(let xx=0;xx<w;xx++){
-      const ax=Math.min(1,Math.min(xx,w-1-xx)/25);
-      const a=ax*ay; if(a<=0) continue;
-      const xn=(x0+xx-cx)/sx, i=(yy*w+xx)*4;
-      const pr=poly(COEF[0],xn,yn), pg=poly(COEF[1],xn,yn), pb=poly(COEF[2],xn,yn);
-      d[i]=d[i]*(1-a)+pr*a; d[i+1]=d[i+1]*(1-a)+pg*a; d[i+2]=d[i+2]*(1-a)+pb*a;
-    }
-  }
-  bctx.putImageData(im,x0,y0);
-
-  const tail=bctx.getImageData(688,476,25,10),td=tail.data,tw=25,th=10;
-  for(let yy=0;yy<th;yy++){
-    const li=(yy*tw)*4,ri=(yy*tw+24)*4;
-    const L=[td[li],td[li+1],td[li+2]],R=[td[ri],td[ri+1],td[ri+2]];
-    for(let xx=1;xx<24;xx++){
-      const q=(yy*tw+xx)*4,t=xx/24;
-      td[q]=L[0]*(1-t)+R[0]*t; td[q+1]=L[1]*(1-t)+R[1]*t; td[q+2]=L[2]*(1-t)+R[2]*t;
-    }
-  }
-  bctx.putImageData(tail,688,476);
-
-  bctx.beginPath(); bctx.moveTo(324,466); bctx.lineTo(1127,466);
-  bctx.strokeStyle='rgb(245,230,210)'; bctx.lineWidth=2; bctx.stroke();
-}
 function todayRu(){const d=new Date();return String(d.getDate()).padStart(2,'0')+'.'+String(d.getMonth()+1).padStart(2,'0')+'.'+d.getFullYear()}
 function fullName(){return (firstName.value.trim()+' '+lastName.value.trim()).trim()}
 function fitFont(text,maxWidth,startSize,minSize){let size=startSize;while(size>minSize){ctx.font=`italic ${size}px "Snell Roundhand","Apple Chancery","Segoe Script","Brush Script MT",Georgia,serif`;if(ctx.measureText(text).width<=maxWidth)break;size-=2}return size}
-function draw(){
-  ctx.clearRect(0,0,1491,1055); ctx.drawImage(base,0,0);
-  const name=fullName();
-  if(name){
-    const size=fitFont(name,660,78,44);
-    ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.font=`italic ${size}px "Snell Roundhand","Apple Chancery","Segoe Script","Brush Script MT",Georgia,serif`;
-    ctx.fillStyle='#f6e1cf'; ctx.shadowColor='rgba(0,0,0,.38)'; ctx.shadowBlur=2;
-    ctx.fillText(name,748,407); ctx.shadowBlur=0;
-  }
-  ctx.font='500 23px -apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif';
-  ctx.fillStyle='#4b2c20'; ctx.textAlign='center'; ctx.textBaseline='alphabetic'; ctx.fillText(todayRu(),365,890);
+function roundedRect(x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+  ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+  ctx.lineTo(x+r,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+  ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath();
 }
-img.onload=()=>{bctx.drawImage(img,0,0,1491,1055);cleanNameArea();draw()};
+function drawNamePlaque(name){
+  const x=350,y=342,w=790,h=126,r=30;
+  ctx.save();
+  ctx.shadowColor='rgba(0,0,0,.38)';ctx.shadowBlur=18;ctx.shadowOffsetY=7;
+  roundedRect(x,y,w,h,r);
+  const g=ctx.createLinearGradient(x,y,x+w,y+h);
+  g.addColorStop(0,'rgba(48,28,19,.98)');
+  g.addColorStop(.48,'rgba(67,40,28,.98)');
+  g.addColorStop(1,'rgba(91,58,40,.98)');
+  ctx.fillStyle=g;ctx.fill();
+  ctx.shadowColor='transparent';
+
+  roundedRect(x,y,w,h,r);
+  ctx.strokeStyle='rgba(232,188,151,.72)';ctx.lineWidth=2;ctx.stroke();
+  roundedRect(x+7,y+7,w-14,h-14,r-7);
+  ctx.strokeStyle='rgba(255,224,196,.18)';ctx.lineWidth=1;ctx.stroke();
+
+  ctx.beginPath();ctx.moveTo(x+70,y+h-28);ctx.lineTo(x+w-70,y+h-28);
+  ctx.strokeStyle='rgba(244,215,188,.62)';ctx.lineWidth=1.6;ctx.stroke();
+
+  if(name){
+    const size=fitFont(name,650,78,44);
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.font=`italic ${size}px "Snell Roundhand","Apple Chancery","Segoe Script","Brush Script MT",Georgia,serif`;
+    ctx.fillStyle='#f7dfcc';ctx.shadowColor='rgba(0,0,0,.32)';ctx.shadowBlur=2;
+    ctx.fillText(name,x+w/2,y+54);ctx.shadowBlur=0;
+  }
+  ctx.restore();
+}
+function draw(){
+  ctx.clearRect(0,0,1491,1055);
+  ctx.drawImage(img,0,0,1491,1055);
+  drawNamePlaque(fullName());
+  ctx.font='500 23px -apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif';
+  ctx.fillStyle='#4b2c20';ctx.textAlign='center';ctx.textBaseline='alphabetic';
+  ctx.fillText(todayRu(),365,890);
+}
+img.onload=draw;
 img.onerror=()=>{statusEl.textContent='Не удалось загрузить изображение сертификата.'};
 [firstName,lastName].forEach(el=>el.addEventListener('input',draw));
 saveBtn.addEventListener('click',()=>{const name=fullName();if(!name){statusEl.textContent='Введите имя и фамилию получателя.';firstName.focus();return}draw();statusEl.textContent='Подготавливаю сертификат…';canvas.toBlob(async blob=>{if(!blob){statusEl.textContent='Не удалось подготовить изображение.';return}const safe=name.replace(/[^a-zA-Zа-яА-ЯёЁ0-9_-]+/g,'-').replace(/^-+|-+$/g,'');const file=new File([blob],`certificate-${safe||'lash-academy'}.png`,{type:'image/png'});try{if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:'Сертификат LASH ACADEMY'});statusEl.textContent='Готово.';return}}catch(e){if(e&&e.name==='AbortError'){statusEl.textContent='Сохранение отменено.';return}}const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=file.name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);statusEl.textContent='Сертификат сохранён.'},'image/png',1)});
