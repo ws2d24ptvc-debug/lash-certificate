@@ -23,25 +23,20 @@ jobs:
           rm -rf /tmp/course-export
           mkdir -p /tmp/course-export
           unzip -q /tmp/course-export.zip -d /tmp/course-export
-          cp /tmp/course-export/course-meta.json course/course-meta.json
-          cp /tmp/course-export/content.enc.json course/content.enc.json
           python - <<'PY'
           import json
-          m=json.load(open('course/course-meta.json'))
-          e=json.load(open('course/content.enc.json'))
+          m=json.load(open('/tmp/course-export/course-meta.json'))
+          e=json.load(open('/tmp/course-export/content.enc.json'))
           assert len(m['modules']) == 14
           assert sum(len(x['lessons']) for x in m['modules']) == 36
           assert e['algorithm'] == 'AES-GCM' and len(e['data']) > 1000
           print('course export verified')
           PY
-      - name: Commit synced export
+      - name: Upload files through GitHub API
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add course/course-meta.json course/content.enc.json
-          if git diff --cached --quiet; then
-            echo "No changes"
-          else
-            git commit -m "Sync encrypted course content"
-            git push
-          fi
+          META=$(base64 -w0 /tmp/course-export/course-meta.json)
+          CONTENT=$(base64 -w0 /tmp/course-export/content.enc.json)
+          gh api --method PUT "repos/${GITHUB_REPOSITORY}/contents/course/course-meta.json" -f message='Sync course metadata' -f content="$META" -f branch=main
+          gh api --method PUT "repos/${GITHUB_REPOSITORY}/contents/course/content.enc.json" -f message='Sync encrypted course content' -f content="$CONTENT" -f branch=main
