@@ -46,7 +46,7 @@ const canvas=document.getElementById('certificate'),ctx=canvas.getContext('2d');
 const firstName=document.getElementById('firstName'),lastName=document.getElementById('lastName');
 const saveBtn=document.getElementById('saveBtn'),statusEl=document.getElementById('status');
 const img=new Image();
-img.src='certificate.webp';
+img.src='EB728164-D014-4352-812A-DEC026E487DA.PNG';
 function todayRu(){const d=new Date();return String(d.getDate()).padStart(2,'0')+'.'+String(d.getMonth()+1).padStart(2,'0')+'.'+d.getFullYear()}
 function fullName(){return (firstName.value.trim()+' '+lastName.value.trim()).trim()}
 function fitFont(text,maxWidth,startSize,minSize){let size=startSize;while(size>minSize){ctx.font=`italic ${size}px "Snell Roundhand","Apple Chancery","Segoe Script","Brush Script MT",cursive`;if(ctx.measureText(text).width<=maxWidth)break;size-=2}return size}
@@ -59,7 +59,7 @@ function draw(){
   ctx.textAlign='center';ctx.textBaseline='middle';ctx.font=`italic ${size}px "Snell Roundhand","Apple Chancery","Segoe Script","Brush Script MT",cursive`;ctx.fillStyle='#f6e1cf';ctx.shadowColor='rgba(0,0,0,.35)';ctx.shadowBlur=2;ctx.fillText(name,748,405);ctx.shadowBlur=0;
   ctx.font='500 23px -apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif';ctx.fillStyle='#4b2c20';ctx.textAlign='center';ctx.textBaseline='alphabetic';ctx.fillText(todayRu(),365,890);
 }
-img.onload=draw;[firstName,lastName].forEach(el=>el.addEventListener('input',draw));
+img.onload=draw;img.onerror=()=>{statusEl.textContent='Не удалось загрузить изображение сертификата.'};[firstName,lastName].forEach(el=>el.addEventListener('input',draw));
 saveBtn.addEventListener('click',()=>{const name=fullName();if(!name){statusEl.textContent='Введите имя и фамилию получателя.';firstName.focus();return}draw();statusEl.textContent='Подготавливаю сертификат…';canvas.toBlob(async blob=>{if(!blob){statusEl.textContent='Не удалось подготовить изображение.';return}const safe=name.replace(/[^a-zA-Zа-яА-ЯёЁ0-9_-]+/g,'-').replace(/^-+|-+$/g,'');const file=new File([blob],`certificate-${safe||'lash-academy'}.png`,{type:'image/png'});try{if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:'Сертификат LASH ACADEMY'});statusEl.textContent='Готово.';return}}catch(e){if(e&&e.name==='AbortError'){statusEl.textContent='Сохранение отменено.';return}}const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=file.name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);statusEl.textContent='Сертификат сохранён.'},'image/png',1)});
 </script>
 </body>
