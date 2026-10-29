@@ -1,0 +1,59 @@
+name: Publish no-VPN full course
+
+on:
+  push:
+    paths:
+      - '.github/workflows/publish-no-vpn-course.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages-no-vpn-course
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout existing public Pages content
+        uses: actions/checkout@v4
+
+      - name: Build complete Pages site with full course
+        env:
+          COURSE_PACKAGE_URL: "https://sdmntprcentralus.oaiusercontent.com/files/00000000-f6b0-81f5-b7e2-1d4f081290c2/raw?se=2026-10-29T18%3A50%3A14Z&sp=r&sv=2026-02-06&sr=b&scid=eb0810df-a8d1-5152-a36a-62c5a5df75a3&skoid=78501c7f-f65d-4e8d-9110-bed29e1beb41&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-10-29T15%3A17%3A53Z&ske=2026-10-30T15%3A17%3A53Z&sks=b&skv=2026-02-06&sig=1cx2TD0tsnBy6KH/LUn0iOkDVcsVSatlzEZxQ5WjZUw%3D"
+        run: |
+          rm -rf /tmp/site /tmp/course-package
+          mkdir -p /tmp/site /tmp/course-package
+          rsync -a --exclude='.git' --exclude='.github' ./ /tmp/site/
+          curl -fL --retry 5 --retry-delay 2 "$COURSE_PACKAGE_URL" -o /tmp/course.zip
+          unzip -q /tmp/course.zip -d /tmp/course-package
+          mkdir -p /tmp/site/course-live
+          if [ -f /tmp/course-package/index.html ]; then
+            cp -a /tmp/course-package/. /tmp/site/course-live/
+          else
+            ROOT=$(find /tmp/course-package -mindepth 1 -maxdepth 2 -type f -name index.html -printf '%h\n' | head -1)
+            test -n "$ROOT"
+            cp -a "$ROOT"/. /tmp/site/course-live/
+          fi
+          touch /tmp/site/.nojekyll
+          test -s /tmp/site/course-live/index.html
+          test -s /tmp/site/certificate-v13.html
+          test -f /tmp/site/course-live/C422E4CE-6585-453F-B280-676D04845B9F.PNG
+          test -f /tmp/site/course-live/C1E03794-5EB4-4FC3-AD6A-21795907586B.PNG
+          ! grep -Rqs 'trycloudflare.com' /tmp/site/course-live || { echo 'Tunnel reference found'; exit 1; }
+
+      - name: Upload complete site to GitHub Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: /tmp/site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
