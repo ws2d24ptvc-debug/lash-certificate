@@ -44,3 +44,5 @@ jobs:
           git add no-vpn-check.txt
           git diff --cached --quiet || git commit -m 'Record no-VPN route verification'
           git push
+
+# rerun 2026-10-29
