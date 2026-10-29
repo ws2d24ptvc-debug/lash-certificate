@@ -1,0 +1,62 @@
+name: Fix auth without VPN
+
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-auth-no-vpn.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify canonical Supabase auth endpoint
+        env:
+          SUPABASE_KEY: sb_publishable_3jTxl7e4GIEbzQgPoUiNzw_OIkOax6w
+        run: |
+          set -e
+          CODE=$(curl -sS -o /tmp/settings.json -w '%{http_code}' \
+            -H "apikey: $SUPABASE_KEY" \
+            https://ytolxddmtybtatadhyqj.supabase.co/auth/v1/settings)
+          echo "canonical_auth_http=$CODE"
+          cat /tmp/settings.json | head -c 500 || true
+          echo
+          test "$CODE" = "200"
+
+      - name: Switch GitHub course auth to canonical Supabase URL
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('course/app.js')
+          s = p.read_text()
+          old = "const SUPABASE_URL = 'https://c--eb1598e0-facf-4633-be7b-c7b847af05a2-prod.lovable.cloud';"
+          new = "const SUPABASE_URL = 'https://ytolxddmtybtatadhyqj.supabase.co';"
+          if old not in s:
+              if new in s:
+                  print('Already switched')
+              else:
+                  raise SystemExit('Expected SUPABASE_URL constant not found')
+          else:
+              s = s.replace(old, new, 1)
+          # Avoid an endless button spinner when a network is blocked.
+          needle = "return fetch(input, { ...init, headers });"
+          replacement = "return fetch(input, { ...init, headers, signal: init.signal ?? AbortSignal.timeout(12000) });"
+          if needle in s:
+              s = s.replace(needle, replacement, 1)
+          p.write_text(s)
+          assert "https://ytolxddmtybtatadhyqj.supabase.co" in s
+          print('Auth endpoint switched to canonical Supabase URL')
+          PY
+
+      - name: Commit fixed auth transport
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add course/app.js
+          git diff --cached --quiet || git commit -m "Use canonical Supabase auth endpoint for no-VPN access"
+          git push
