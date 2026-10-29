@@ -1,0 +1,37 @@
+name: Test Replit proxy v2
+
+on:
+  push:
+    paths:
+      - '.github/workflows/test-replit-proxy-v2.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check published proxy after configuration
+        env:
+          KEY: sb_publishable_3jTxl7e4GIEbzQgPoUiNzw_OIkOax6w
+        run: |
+          set +e
+          BASE='https://gargantuan-odd-objectmodel--6nmzk9jh2r.replit.app'
+          h=$(curl -sS -L --connect-timeout 10 --max-time 20 -o /tmp/health -w '%{http_code}' "$BASE/health" 2>/tmp/health_err)
+          a=$(curl -sS -L --connect-timeout 10 --max-time 20 -o /tmp/auth -w '%{http_code}' -H "apikey: $KEY" "$BASE/auth/v1/health" 2>/tmp/auth_err)
+          r=$(curl -sS -L --connect-timeout 10 --max-time 20 -o /tmp/rest -w '%{http_code}' -H "apikey: $KEY" "$BASE/rest/v1/" 2>/tmp/rest_err)
+          printf 'health=%s\nauth=%s\nrest=%s\n' "$h" "$a" "$r" > replit-proxy-test-v2.txt
+          printf 'health_body=%s\n' "$(head -c 300 /tmp/health | tr '\n' ' ')" >> replit-proxy-test-v2.txt
+          printf 'auth_body=%s\n' "$(head -c 300 /tmp/auth | tr '\n' ' ')" >> replit-proxy-test-v2.txt
+          printf 'rest_body=%s\n' "$(head -c 300 /tmp/rest | tr '\n' ' ')" >> replit-proxy-test-v2.txt
+          printf 'health_err=%s\n' "$(tr '\n' ' ' </tmp/health_err)" >> replit-proxy-test-v2.txt
+          printf 'auth_err=%s\n' "$(tr '\n' ' ' </tmp/auth_err)" >> replit-proxy-test-v2.txt
+          printf 'rest_err=%s\n' "$(tr '\n' ' ' </tmp/rest_err)" >> replit-proxy-test-v2.txt
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add replit-proxy-test-v2.txt
+          git commit -m 'Record Replit proxy retest' || true
+          git push
