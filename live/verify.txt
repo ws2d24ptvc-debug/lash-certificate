@@ -1,6 +1,7 @@
 root=200
 certificate=200
 photos=200
-module4_lesson1_image=removed_in_source
+module4_lessons=1
+module4_first_page=removed_completely
 certificate_v13=verified
 source=clean-production-build
