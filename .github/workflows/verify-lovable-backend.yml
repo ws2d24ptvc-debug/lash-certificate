@@ -1,0 +1,43 @@
+name: Verify Lovable Cloud backend
+
+on:
+  push:
+    paths:
+      - '.github/workflows/verify-lovable-backend.yml'
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check Lovable backend Auth REST and CORS
+        env:
+          BASE: https://c--eb1598e0-facf-4633-be7b-c7b847af05a2-prod.lovable.cloud
+          APIKEY: sb_publishable_3jTxl7e4GIEbzQgPoUiNzw_OIkOax6w
+          ORIGIN: https://ws2d24ptvc-debug.github.io
+        run: |
+          set -euxo pipefail
+          options=$(curl -sS -i -X OPTIONS --max-time 20 \
+            -H "Origin: $ORIGIN" \
+            -H 'Access-Control-Request-Method: POST' \
+            -H 'Access-Control-Request-Headers: apikey,authorization,content-type,x-client-info' \
+            "$BASE/auth/v1/token?grant_type=password")
+          echo "$options" | sed -n '1,30p'
+          post_code=$(curl -sS -o /tmp/post -w '%{http_code}' --max-time 20 \
+            -X POST \
+            -H "Origin: $ORIGIN" \
+            -H "apikey: $APIKEY" \
+            -H 'Content-Type: application/json' \
+            --data '{"email":"gateway-probe@example.invalid","password":"not-a-real-password"}' \
+            "$BASE/auth/v1/token?grant_type=password")
+          rest_code=$(curl -sS -o /tmp/rest -w '%{http_code}' --max-time 20 \
+            -H "Origin: $ORIGIN" \
+            -H "apikey: $APIKEY" \
+            "$BASE/rest/v1/profiles?select=id&limit=1")
+          echo "post=$post_code rest=$rest_code"
+          cat /tmp/post || true
+          cat /tmp/rest || true
+          test "$post_code" != 000
+          test "$post_code" != 404
+          test "$post_code" != 500
+          echo "$options" | grep -qi 'access-control-allow-origin'
