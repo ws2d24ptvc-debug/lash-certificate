@@ -1,0 +1,87 @@
+name: Fix course-live routing
+
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-course-live-routing.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Patch router basepath and auth redirects
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          assets = Path('course-live/assets')
+          js_files = list(assets.glob('*.js'))
+
+          # 1) TanStack Router must know that the app is mounted in a GitHub Pages subdirectory.
+          router_hits = []
+          for p in js_files:
+              s = p.read_text()
+              if 'scrollRestoration' in s and 'defaultPreloadStaleTime' in s:
+                  router_hits.append(p)
+          if len(router_hits) != 1:
+              raise SystemExit(f'Expected exactly one router bundle, found: {[p.name for p in router_hits]}')
+
+          rp = router_hits[0]
+          s = rp.read_text()
+          if 'basepath:`/lash-certificate/course-live`' not in s and 'basepath:"/lash-certificate/course-live"' not in s:
+              pattern = r'(scrollRestoration\s*:\s*!0\s*,\s*defaultPreloadStaleTime\s*:\s*0)'
+              s2, count = re.subn(pattern, r'basepath:`/lash-certificate/course-live`,\1', s, count=1)
+              if count != 1:
+                  # Some minifiers keep true instead of !0.
+                  pattern2 = r'(scrollRestoration\s*:\s*true\s*,\s*defaultPreloadStaleTime\s*:\s*0)'
+                  s2, count = re.subn(pattern2, r'basepath:`/lash-certificate/course-live`,\1', s, count=1)
+              if count != 1:
+                  raise SystemExit('Could not find the router options insertion point')
+              rp.write_text(s2)
+
+          # 2) Keep email confirmation, reset-password and Google OAuth callbacks inside course-live.
+          auth_hits = []
+          for p in js_files:
+              s = p.read_text()
+              if 'signInWithPassword' in s and 'resetPasswordForEmail' in s:
+                  auth_hits.append(p)
+          if len(auth_hits) != 1:
+              raise SystemExit(f'Expected exactly one auth bundle, found: {[p.name for p in auth_hits]}')
+
+          ap = auth_hits[0]
+          a = ap.read_text()
+          a = a.replace('window.location.origin+`/auth`', 'window.location.origin+`/lash-certificate/course-live/auth`')
+          a = a.replace('window.location.origin+`/reset-password`', 'window.location.origin+`/lash-certificate/course-live/reset-password`')
+          ap.write_text(a)
+
+          # Verification: no root callbacks remain and router has the basepath.
+          rs = rp.read_text()
+          aa = ap.read_text()
+          assert 'basepath:`/lash-certificate/course-live`' in rs or 'basepath:"/lash-certificate/course-live"' in rs
+          assert 'window.location.origin+`/auth`' not in aa
+          assert 'window.location.origin+`/reset-password`' not in aa
+          assert '/lash-certificate/course-live/auth' in aa
+          assert '/lash-certificate/course-live/reset-password' in aa
+
+          Path('course-live/routing-fix.txt').write_text(
+              f'router={rp.name}\nauth={ap.name}\nbasepath=/lash-certificate/course-live\nstatus=patched\n'
+          )
+          print('Patched router:', rp.name)
+          print('Patched auth:', ap.name)
+          PY
+
+      - name: Commit routing fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add course-live/assets course-live/routing-fix.txt
+          git diff --cached --quiet && exit 0
+          git commit -m "Fix course login routing on GitHub Pages"
+          git push
