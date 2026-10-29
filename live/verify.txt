@@ -1,4 +1,4 @@
 root=200
 certificate=200
 photos=200
-module4_lesson1_broken_photo=hidden
+module4_lesson1_image_element=removed
