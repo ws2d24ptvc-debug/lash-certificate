@@ -1,0 +1,4 @@
+health=200
+auth=200
+rest=200
+backend=existing-lovable-cloud
