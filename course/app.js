@@ -51,8 +51,14 @@ function navigate(page, params = {}) {
   render();
 }
 
+const NON_STUDENT_LESSONS = new Set(['osnovy-cikl', 'osnovy-protivopokazaniya', 'prodvizhenie-start', 'bezopasnost-sanitariya']);
+
+function studentLessons(lessons = []) {
+  return lessons.filter((l) => !NON_STUDENT_LESSONS.has(l.id));
+}
+
 function allLessons() {
-  return (state.meta?.modules ?? []).flatMap((m) => m.lessons);
+  return (state.meta?.modules ?? []).flatMap((m) => studentLessons(m.lessons));
 }
 
 function progressFor(completed = new Set(), lessons = allLessons()) {
@@ -274,8 +280,10 @@ async function renderCabinet() {
   }
   const p = progressFor(student.completed);
   const moduleHtml = state.meta.modules.map((m) => {
-    const mp = progressFor(student.completed, m.lessons);
-    const lessons = m.lessons.map((l) => {
+    const visibleLessons = studentLessons(m.lessons);
+    if (!visibleLessons.length) return '';
+    const mp = progressFor(student.completed, visibleLessons);
+    const lessons = visibleLessons.map((l) => {
       const done = student.completed.has(l.id);
       return `<a href="?page=lesson&id=${encodeURIComponent(l.id)}" class="lesson-card" data-lesson="${escapeHtml(l.id)}">
         <span class="status ${done ? 'done' : ''}">${done ? '✓ Пройдено' : '○ Не пройдено'}</span>
@@ -336,7 +344,7 @@ async function renderLesson() {
   const lessons = allLessons();
   const index = lessons.findIndex((l) => l.id === id);
   const lesson = lessons[index];
-  if (!lesson) throw new Error('Урок не найден.');
+  if (!lesson || NON_STUDENT_LESSONS.has(id)) throw new Error('Урок не найден.');
   const blocks = protectedContent.lessonContent?.[id] ?? [];
   const done = student.completed.has(id);
   app.innerHTML = shell(`
