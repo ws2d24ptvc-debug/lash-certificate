@@ -1,0 +1,47 @@
+name: Sync course export
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/sync-course-export.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Download encrypted course export
+        env:
+          EXPORT_URL: 'https://sdmntprcentralus.oaiusercontent.com/files/00000000-c8dc-81f5-a929-a6d33bd3c8d6/raw?se=2026-10-29T14%3A51%3A33Z&sp=r&sv=2026-02-06&sr=b&scid=77c8babc-09c4-5ed6-bf41-d326f07340f1&skoid=78501c7f-f65d-4e8d-9110-bed29e1beb41&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-10-29T13%3A17%3A53Z&ske=2026-10-30T13%3A17%3A53Z&sks=b&skv=2026-02-06&sig=9JOrCOA48g0vxs5z8l6z0Is/yPU6ASaX3E8KvPXvw/M%3D'
+        run: |
+          curl -fL "$EXPORT_URL" -o /tmp/course-export.zip
+          rm -rf /tmp/course-export
+          mkdir -p /tmp/course-export
+          unzip -q /tmp/course-export.zip -d /tmp/course-export
+          cp /tmp/course-export/course-meta.json course/course-meta.json
+          cp /tmp/course-export/content.enc.json course/content.enc.json
+          python - <<'PY'
+          import json
+          m=json.load(open('course/course-meta.json'))
+          e=json.load(open('course/content.enc.json'))
+          assert len(m['modules']) == 14
+          assert sum(len(x['lessons']) for x in m['modules']) == 36
+          assert e['algorithm'] == 'AES-GCM' and len(e['data']) > 1000
+          print('course export verified')
+          PY
+      - name: Commit synced export
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add course/course-meta.json course/content.enc.json
+          if git diff --cached --quiet; then
+            echo "No changes"
+          else
+            git commit -m "Sync encrypted course content"
+            git push
+          fi
