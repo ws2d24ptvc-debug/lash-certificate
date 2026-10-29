@@ -1,0 +1,35 @@
+name: Verify no-VPN GitHub Pages course
+
+on:
+  push:
+    paths:
+      - '.github/workflows/verify-novpn-pages.yml'
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify public course URLs
+        run: |
+          set -e
+          BASE='https://ws2d24ptvc-debug.github.io/lash-certificate'
+          for i in {1..30}; do
+            ROOT=$(curl -L -sS -o /tmp/course.html -w '%{http_code}' "$BASE/course-live/?check=novpn" || true)
+            LIVE=$(curl -L -sS -o /tmp/live.html -w '%{http_code}' "$BASE/live/?check=novpn" || true)
+            if [ "$ROOT" = "200" ] && [ "$LIVE" = "200" ]; then
+              break
+            fi
+            sleep 5
+          done
+          echo "course-live=$ROOT"
+          echo "live=$LIVE"
+          test "$ROOT" = "200"
+          test "$LIVE" = "200"
+          grep -q 'LASH ACADEMY' /tmp/course.html
+          grep -q 'course-live' /tmp/live.html
+          ASSET=$(grep -o '/lash-certificate/course-live/assets/styles-[^" ]*\.css' /tmp/course.html | head -1)
+          test -n "$ASSET"
+          CODE=$(curl -sS -o /tmp/style.css -w '%{http_code}' "$BASE$ASSET")
+          echo "asset=$CODE"
+          test "$CODE" = "200"
