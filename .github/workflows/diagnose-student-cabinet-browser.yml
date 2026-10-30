@@ -1,0 +1,115 @@
+name: Diagnose student cabinet in browser
+
+on:
+  push:
+    paths:
+      - '.github/workflows/diagnose-student-cabinet-browser.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install browser driver
+        run: npm install --no-save --no-package-lock playwright-core@1.55.0
+      - name: Prepare local Pages layout
+        run: |
+          mkdir -p /tmp/site/lash-certificate
+          cp -R course-live /tmp/site/lash-certificate/course-live
+          nohup python3 -m http.server 8123 --directory /tmp/site >/tmp/http.log 2>&1 &
+          for i in {1..20}; do
+            curl -fsS http://127.0.0.1:8123/lash-certificate/course-live/ >/dev/null && exit 0
+            sleep 1
+          done
+          cat /tmp/http.log
+          exit 1
+      - name: Run cabinet smoke tests
+        run: |
+          cat > /tmp/test-cabinet.mjs <<'JS'
+          import { chromium } from 'playwright-core';
+          import fs from 'node:fs';
+
+          const browser = await chromium.launch({ channel: 'chrome', headless: true });
+          const out = [];
+          const base = 'http://127.0.0.1:8123/lash-certificate/course-live';
+          const storageKey = 'sb-lash-course-auth-proxy-auth-token';
+          const fakeSession = {
+            access_token: 'header.payload.signature',
+            refresh_token: 'fake-refresh-token',
+            token_type: 'bearer',
+            expires_in: 36000,
+            expires_at: Math.floor(Date.now()/1000) + 36000,
+            user: {
+              id: '11111111-1111-4111-8111-111111111111',
+              aud: 'authenticated',
+              role: 'authenticated',
+              email: 'student-smoke@example.com',
+              app_metadata: { provider: 'email', providers: ['email'] },
+              user_metadata: {},
+              identities: [],
+              created_at: new Date().toISOString()
+            }
+          };
+
+          async function runCase(label, active) {
+            const context = await browser.newContext();
+            await context.addInitScript(({ key, session }) => {
+              try { localStorage.setItem(key, JSON.stringify(session)); } catch {}
+            }, { key: storageKey, session: fakeSession });
+            const page = await context.newPage();
+            const events = [];
+            page.on('pageerror', e => events.push(`pageerror: ${e.message}`));
+            page.on('console', m => { if (m.type() === 'error') events.push(`console.error: ${m.text()}`); });
+            page.on('requestfailed', r => events.push(`requestfailed: ${r.url()} :: ${r.failure()?.errorText}`));
+            page.on('response', r => { if (r.status() >= 400) events.push(`http${r.status()}: ${r.url()}`); });
+            await page.route('https://lash-course-auth-proxy.layero.app/**', async route => {
+              const url = new URL(route.request().url());
+              const p = url.pathname;
+              const headers = { 'content-type': 'application/json' };
+              if (p.includes('/rest/v1/course_access')) return route.fulfill({ status: 200, headers, body: JSON.stringify({ is_active: active }) });
+              if (p.includes('/rest/v1/user_roles')) return route.fulfill({ status: 200, headers, body: '[]' });
+              if (p.includes('/rest/v1/lesson_progress')) return route.fulfill({ status: 200, headers, body: '[]' });
+              if (p.includes('/rest/v1/profiles')) return route.fulfill({ status: 200, headers, body: JSON.stringify({ full_name: 'Smoke Student', email: 'student-smoke@example.com' }) });
+              if (p.includes('/auth/v1/user')) return route.fulfill({ status: 200, headers, body: JSON.stringify(fakeSession.user) });
+              return route.fulfill({ status: 200, headers, body: '{}' });
+            });
+            let navError = '';
+            try {
+              await page.goto(`${base}/cabinet/?smoke=${label}`, { waitUntil: 'domcontentloaded', timeout: 30000 });
+              await page.waitForTimeout(5000);
+            } catch (e) { navError = e.message; }
+            const body = (await page.locator('body').innerText().catch(() => '')).replace(/\s+/g, ' ').trim();
+            const url = page.url();
+            out.push(`CASE=${label}`);
+            out.push(`active=${active}`);
+            out.push(`url=${url}`);
+            out.push(`nav_error=${navError}`);
+            out.push(`body=${body.slice(0,1200)}`);
+            out.push(...events.slice(0,30));
+            out.push('---');
+            await page.screenshot({ path: `/tmp/${label}.png`, fullPage: true }).catch(()=>{});
+            await context.close();
+          }
+
+          await runCase('pending-student', false);
+          await runCase('active-student', true);
+          await browser.close();
+          fs.mkdirSync('course-live/diagnostics', { recursive: true });
+          fs.writeFileSync('course-live/diagnostics/cabinet-browser.txt', out.join('\n') + '\n');
+          console.log(out.join('\n'));
+          JS
+          node /tmp/test-cabinet.mjs
+      - name: Save browser diagnostic
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add course-live/diagnostics/cabinet-browser.txt
+          git diff --cached --quiet || git commit -m 'Record student cabinet browser diagnostic'
+          git push
