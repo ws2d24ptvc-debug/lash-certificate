@@ -1,0 +1,36 @@
+name: Switch course-live backend to Layero
+
+on:
+  push:
+    paths:
+      - '.github/workflows/switch-course-live-to-layero.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Replace old backend URL with Layero
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('course-live/assets/client-OS6V9nLy.js')
+          old = 'https://br-purple-bonus-b9gcitpk-lashproxy.compute.c-7.eu-central-1.aws.neon.tech'
+          new = 'https://lash-course-auth-proxy.layero.app'
+          text = path.read_text()
+          count = text.count(old)
+          if count == 0:
+              raise SystemExit('Old Neon backend URL not found; refusing blind patch')
+          path.write_text(text.replace(old, new))
+          print(f'Replaced {count} occurrence(s)')
+          PY
+      - name: Commit patched site
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add course-live/assets/client-OS6V9nLy.js
+          git commit -m 'Use Layero backend for course-live'
+          git push
