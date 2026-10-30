@@ -1,0 +1,1 @@
+import{o as e}from"./useSelector-Dq6-RCm6-studentfix5.js";import{_ as t}from"./index-routing-20261031-v3-studentfix5.js";var n=e(),r=()=>(0,n.jsx)(t,{});export{r as component};
