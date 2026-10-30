@@ -32,7 +32,7 @@ const server = http.createServer(async (req, res) => {
   const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
 
   if (url.pathname === '/health') {
-    return write(res, 200, 'ok-cors2', {
+    return write(res, 200, 'ok-cors3', {
       ...cors,
       'Content-Type': 'text/plain; charset=utf-8'
     });
@@ -59,9 +59,10 @@ const server = http.createServer(async (req, res) => {
   for (const [key, value] of Object.entries(req.headers)) {
     if (value == null) continue;
     const lower = key.toLowerCase();
-    if (['host','origin','referer','connection','content-length','x-forwarded-for','x-forwarded-proto','x-forwarded-host'].includes(lower)) continue;
+    if (['host','origin','referer','connection','content-length','accept-encoding','x-forwarded-for','x-forwarded-proto','x-forwarded-host'].includes(lower)) continue;
     headers.set(key, Array.isArray(value) ? value.join(', ') : value);
   }
+  headers.set('accept-encoding', 'identity');
 
   const targetUrl = new URL(url.pathname + url.search, TARGET);
 
@@ -78,7 +79,7 @@ const server = http.createServer(async (req, res) => {
     const outHeaders = { ...cors };
     upstream.headers.forEach((value, key) => {
       const lower = key.toLowerCase();
-      if (['transfer-encoding','connection','content-length','access-control-allow-origin','access-control-allow-methods','access-control-allow-headers','access-control-expose-headers','access-control-max-age','vary'].includes(lower)) return;
+      if (['transfer-encoding','connection','content-length','content-encoding','access-control-allow-origin','access-control-allow-methods','access-control-allow-headers','access-control-expose-headers','access-control-max-age','vary'].includes(lower)) return;
       outHeaders[key] = value;
     });
     outHeaders['Content-Length'] = String(responseBody.length);
