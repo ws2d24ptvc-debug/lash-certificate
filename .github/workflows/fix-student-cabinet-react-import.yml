@@ -1,0 +1,73 @@
+name: Fix student cabinet React import
+
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-student-cabinet-react-import.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch CabinetShell React import and cache-bust asset
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          root = Path('course-live')
+          assets = root / 'assets'
+          old_name = 'CabinetShell-BD7mzXWO.js'
+          new_name = 'CabinetShell-studentfix-20261031-v2.js'
+          src = assets / old_name
+          s = src.read_text()
+
+          replacements = [
+              ('import{o as e}from"./useSelector-Dq6-RCm6.js";', 'import{o as e,s as R}from"./useSelector-Dq6-RCm6.js";'),
+              (',_=e();function v(', ',_=e(),E=R();function v('),
+              ('(0,_.useEffect)(()=>{', '(0,E.useEffect)(()=>{'),
+          ]
+          for old, new in replacements:
+              count = s.count(old)
+              if count != 1:
+                  raise SystemExit(f'Expected exactly one {old!r}, got {count}')
+              s = s.replace(old, new, 1)
+
+          if 'E.useEffect' not in s or '_.jsx' not in s:
+              raise SystemExit('Patched runtime markers missing')
+          (assets / new_name).write_text(s)
+
+          changed = 0
+          for p in list(root.rglob('*.html')) + list(assets.glob('*.js')):
+              if p.name == old_name or p.name == new_name:
+                  continue
+              text = p.read_text()
+              new_text = text.replace(old_name, new_name)
+              if new_text != text:
+                  p.write_text(new_text)
+                  changed += 1
+          if changed < 2:
+              raise SystemExit(f'Expected multiple CabinetShell references, changed={changed}')
+
+          cabinet = (assets / 'cabinet-Gzel5XGj.js').read_text()
+          if new_name not in cabinet or old_name in cabinet:
+              raise SystemExit('Cabinet bundle did not switch to fresh CabinetShell')
+
+          (root / 'student-cabinet-react-fix.txt').write_text(
+              f'asset={new_name}\nreact_hook=useEffect\njsx_runtime=preserved\nstatus=patched\n'
+          )
+          print('patched references', changed)
+          PY
+          node --check course-live/assets/CabinetShell-studentfix-20261031-v2.js
+      - name: Commit fixed student cabinet
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add course-live
+          git diff --cached --quiet && exit 0
+          git commit -m 'Fix React hook import in student cabinet'
+          git push
