@@ -1,4 +1,4 @@
-name: Switch course-live to direct Supabase
+name: Switch course-live to VPN-free proxy
 
 on:
   push:
@@ -10,8 +10,8 @@ permissions:
   contents: write
 
 env:
-  OLD_URL: 'https://c--eb1598e0-facf-4633-be7b-c7b847af05a2-prod.lovable.cloud'
-  NEW_URL: 'https://ytolxddmtybtatadhyqj.supabase.co'
+  OLD_URL: 'https://ytolxddmtybtatadhyqj.supabase.co'
+  NEW_URL: 'https://gargantuan-odd-objectmodel--6nmzk9jh2r.replit.app'
   SUPABASE_KEY: 'sb_publishable_3jTxl7e4GIEbzQgPoUiNzw_OIkOax6w'
 
 jobs:
@@ -20,61 +20,42 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Verify direct Supabase is reachable
+      - name: Verify proxy auth endpoint
         shell: bash
         run: |
           set -euo pipefail
-          code=$(curl -sS -o /tmp/settings.json -w '%{http_code}' \
+          code=$(curl -L -sS -o /tmp/settings.json -w '%{http_code}' \
             -H "apikey: $SUPABASE_KEY" \
             "$NEW_URL/auth/v1/settings")
-          echo "direct_supabase_settings_http=$code"
+          echo "proxy_settings_http=$code"
           test "$code" = "200"
 
-      - name: Remove Lovable Cloud dependency from current GitHub Pages build
+      - name: Switch current GitHub Pages build to proxy
         shell: bash
         run: |
           set -euo pipefail
           python - <<'PY'
           from pathlib import Path
           import os
-
-          old = os.environ['OLD_URL']
-          new = os.environ['NEW_URL']
-          root = Path('course-live')
-          changed = []
-
+          old=os.environ['OLD_URL']; new=os.environ['NEW_URL']; root=Path('course-live'); changed=[]
           for path in root.rglob('*'):
-              if not path.is_file() or path.suffix.lower() not in {'.js', '.html', '.json', '.txt', '.css'}:
-                  continue
-              try:
-                  text = path.read_text(encoding='utf-8')
-              except UnicodeDecodeError:
-                  continue
+              if not path.is_file() or path.suffix.lower() not in {'.js','.html','.json','.txt','.css'}: continue
+              try: text=path.read_text(encoding='utf-8')
+              except UnicodeDecodeError: continue
               if old in text:
-                  count = text.count(old)
-                  path.write_text(text.replace(old, new), encoding='utf-8')
-                  changed.append((str(path), count))
-
-          if not changed:
-              print('No Lovable Cloud endpoint remains in course-live; already switched.')
-          else:
-              for path, count in changed:
-                  print(f'replaced {count} occurrence(s) in {path}')
-
-          leftovers = []
+                  n=text.count(old); path.write_text(text.replace(old,new),encoding='utf-8'); changed.append((str(path),n))
+          if not changed: raise SystemExit('Direct Supabase URL not found; refusing blind patch')
+          for path,n in changed: print(f'replaced {n} occurrence(s) in {path}')
+          leftovers=[]
           for path in root.rglob('*'):
-              if not path.is_file() or path.suffix.lower() not in {'.js', '.html', '.json', '.txt', '.css'}:
-                  continue
-              try:
-                  if old in path.read_text(encoding='utf-8'):
-                      leftovers.append(str(path))
-              except UnicodeDecodeError:
-                  pass
-          if leftovers:
-              raise SystemExit('Lovable Cloud endpoint still present: ' + ', '.join(leftovers))
+              if path.is_file() and path.suffix.lower() in {'.js','.html','.json','.txt','.css'}:
+                  try:
+                      if old in path.read_text(encoding='utf-8'): leftovers.append(str(path))
+                  except UnicodeDecodeError: pass
+          if leftovers: raise SystemExit('Direct Supabase endpoint remains: '+', '.join(leftovers))
           PY
 
-      - name: Commit direct-backend build
+      - name: Commit VPN-free proxy build
         shell: bash
         run: |
           set -euo pipefail
@@ -84,6 +65,6 @@ jobs:
           if git diff --cached --quiet; then
             echo 'No build changes to commit'
           else
-            git commit -m 'Use direct Supabase in VPN-free course build'
+            git commit -m 'Use VPN-free auth proxy in course build'
             git push
           fi
