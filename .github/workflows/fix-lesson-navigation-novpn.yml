@@ -1,0 +1,83 @@
+name: Fix no-VPN lesson navigation
+
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-lesson-navigation-novpn.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Materialize lesson routes and force reliable navigation
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          root = Path('course-live')
+          index = root / 'index.html'
+          if not index.exists():
+              raise SystemExit('course-live/index.html missing')
+
+          html = index.read_text(encoding='utf-8')
+          marker = 'data-novpn-route-fix="v3"'
+          script = r'''<script data-novpn-route-fix="v3">(function(){document.addEventListener('click',function(e){var a=e.target&&e.target.closest?e.target.closest('a[href]'):null;if(!a)return;try{var u=new URL(a.href,location.href);if(u.origin===location.origin&&u.pathname.indexOf('/lash-certificate/course-live/')===0){e.preventDefault();e.stopImmediatePropagation();location.assign(u.href);}}catch(_){ }},true);})();</script>'''
+          if marker not in html:
+              html = html.replace('</body>', script + '</body>')
+          index.write_text(html, encoding='utf-8')
+
+          fallback = root / '404.html'
+          if fallback.exists():
+              f = fallback.read_text(encoding='utf-8')
+              if marker not in f:
+                  f = f.replace('</body>', script + '</body>')
+              fallback.write_text(f, encoding='utf-8')
+
+          lesson_ids = [
+            'osnovy-stroenie',
+            'glaz-anatomiya','glaz-stroenie-resnitsy','glaz-fazy-rosta','glaz-napravlenie','glaz-ocenka',
+            'materialy-pincety','materialy-resnitsy','materialy-izolyaciya','materialy-podgotovka','materialy-kley',
+            'bezopasnost-pincety',
+            'podgotovka-protivopokazaniya','podgotovka-izolyaciya','podgotovka-materialy',
+            'ruka-postanovka','klassika-tehnika',
+            'modelirovanie-shema','modelirovanie-opushennyi','modelirovanie-lisiy','modelirovanie-naturalnyi','modelirovanie-kukolnyi','modelirovanie-belichiy','modelirovanie-kim','modelirovanie-mokryi',
+            'oshibki-tipichnye','oshibki-snyatie','obemy-puchki',
+            'effekty-bazovye','sovremennye-mokryi','sovremennye-kim','klient-konsultaciya'
+          ]
+
+          for route in ['cabinet','program','lessons','reset-password']:
+              p = root / route
+              p.mkdir(parents=True, exist_ok=True)
+              (p / 'index.html').write_text(html, encoding='utf-8')
+
+          for lesson_id in lesson_ids:
+              p = root / 'lesson' / lesson_id
+              p.mkdir(parents=True, exist_ok=True)
+              (p / 'index.html').write_text(html, encoding='utf-8')
+
+          (root / 'route-map.txt').write_text(
+              'status=materialized\nlesson_routes=%d\nforce_full_navigation=yes\nbase=/lash-certificate/course-live\n' % len(lesson_ids),
+              encoding='utf-8'
+          )
+          print('materialized', len(lesson_ids), 'lesson routes')
+          PY
+
+          test -s course-live/lesson/osnovy-stroenie/index.html
+          test -s course-live/lesson/klassika-tehnika/index.html
+          test -s course-live/lesson/klient-konsultaciya/index.html
+          grep -q 'data-novpn-route-fix' course-live/index.html
+
+      - name: Commit fixed routes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add course-live
+          git diff --cached --quiet && exit 0
+          git commit -m "Make all course lessons open directly without VPN"
+          git push
