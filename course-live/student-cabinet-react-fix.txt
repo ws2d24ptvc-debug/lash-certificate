@@ -1,0 +1,4 @@
+asset=CabinetShell-studentfix-20261031-v2.js
+react_hook=useEffect
+jsx_runtime=preserved
+status=patched
