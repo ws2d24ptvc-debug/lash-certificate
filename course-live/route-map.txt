@@ -1,0 +1,4 @@
+status=materialized
+lesson_routes=32
+force_full_navigation=yes
+base=/lash-certificate/course-live
