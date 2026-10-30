@@ -3,11 +3,12 @@ import http from 'node:http';
 const TARGET = 'https://ytolxddmtybtatadhyqj.supabase.co';
 const PORT = Number(process.env.PORT || 3000);
 
-function corsHeaders() {
+function corsHeaders(requestedHeaders = '') {
+  const allowedHeaders = requestedHeaders || 'apikey, authorization, content-type, x-client-info, x-supabase-api-version, accept, prefer, range, accept-profile, content-profile, x-upsert';
   return {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'apikey, authorization, content-type, x-client-info, x-supabase-api-version, accept, prefer, range',
+    'Access-Control-Allow-Headers': allowedHeaders,
     'Access-Control-Expose-Headers': 'content-range, x-supabase-api-version, content-type',
     'Access-Control-Max-Age': '86400',
     'Cache-Control': 'no-store'
@@ -20,7 +21,10 @@ function write(res, status, body, headers = {}) {
 }
 
 const server = http.createServer(async (req, res) => {
-  const cors = corsHeaders();
+  const requestedHeaders = Array.isArray(req.headers['access-control-request-headers'])
+    ? req.headers['access-control-request-headers'].join(', ')
+    : (req.headers['access-control-request-headers'] || '');
+  const cors = corsHeaders(requestedHeaders);
 
   if (req.method === 'OPTIONS') {
     return write(res, 200, '', {
@@ -32,7 +36,7 @@ const server = http.createServer(async (req, res) => {
   const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
 
   if (url.pathname === '/health') {
-    return write(res, 200, 'ok-cors3', {
+    return write(res, 200, 'ok-cors4', {
       ...cors,
       'Content-Type': 'text/plain; charset=utf-8'
     });
