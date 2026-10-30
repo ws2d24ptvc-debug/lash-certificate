@@ -1,0 +1,4 @@
+router=index-routing-20261031-v3.js
+guard=getSession
+auth_entry=original
+status=patched
