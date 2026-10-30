@@ -1,0 +1,37 @@
+name: Diagnose student cabinet in browser v2
+
+on:
+  push:
+    paths:
+      - '.github/workflows/diagnose-student-cabinet-browser-v2.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install browser driver
+        run: npm install --no-save --no-package-lock playwright-core@1.55.0
+      - name: Serve Pages copy
+        run: |
+          mkdir -p /tmp/site/lash-certificate
+          cp -R course-live /tmp/site/lash-certificate/course-live
+          nohup python3 -m http.server 8123 --directory /tmp/site >/tmp/http.log 2>&1 &
+          for i in {1..20}; do curl -fsS http://127.0.0.1:8123/lash-certificate/course-live/ >/dev/null && exit 0; sleep 1; done
+          cat /tmp/http.log; exit 1
+      - name: Run browser diagnostic
+        run: node scripts/diagnose-student-cabinet-browser.mjs
+      - name: Save result
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add course-live/diagnostics/cabinet-browser.txt
+          git diff --cached --quiet || git commit -m 'Record corrected cabinet browser diagnostic'
+          git push
