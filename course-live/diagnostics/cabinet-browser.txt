@@ -1,0 +1,80 @@
+CASE=pending-student
+active=false
+url=http://127.0.0.1:8123/lash-certificate/course-live/cabinet?smoke=pending-student
+nav_error=
+body=This page didn't load Something went wrong on our end. You can try refreshing or head back home. Try again Go home
+pageerror: Minified React error #418; visit https://react.dev/errors/418?args[]=HTML&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.
+console.error: TypeError: (0 , _.useEffect) is not a function
+    at v (http://127.0.0.1:8123/lash-certificate/course-live/assets/CabinetShell-BD7mzXWO.js:1:2390)
+    at ns (http://127.0.0.1:8123/lash-certificate/course-live/assets/index-routing-20261031-v3.js:9:49215)
+    at Kc (http://127.0.0.1:8123/lash-certificate/course-live/assets/index-routing-20261031-v3.js:9:71923)
+    at pl (http://127.0.0.1:8123/lash-certificate/course-live/assets/index-routing-20261031-v3.js:9:82848)
+    at Zd (http://127.0.0.1:8123/lash-certificate/course-live/assets/index-routing-20261031-v3.js:9:128034)
+    at Jd (http://127.0.0.1:8123/lash-certificate/course-live/assets/index-routing-20261031-v3.js:9:127115)
+    at qd (http://127.0.0.1:8123/lash-certificate/course-live/assets/index-routing-20261031-v3.js:9:126953)
+    at Fd (http://127.0.0.1:8123/lash-certificate/course-live/assets/index-routing-20261031-v3.js:9:123328)
+    at Mf (http://127.0.0.1:8123/lash-certificate/course-live/assets/index-routing-20261031-v3.js:9:136126)
+    at Df (http://127.0.0.1:8123/lash-certificate/course-live/assets/index-routing-20261031-v3.js:9:134686)
+console.error: TypeError: (0 , _.useEffect) is not a function
+    at v (http://127.0.0.1:8123/lash-certificate/course-live/assets/CabinetShell-BD7mzXWO.js:1:2390)
+    at ns (http://127.0.0.1:8123/lash-certificate/course-live/assets/index-routing-20261031-v3.js:9:49215)
+    at Kc (http://127.0.0.1:8123/lash-certificate/course-live/assets/index-routing-20261031-v3.js:9:71923)
+    at pl (http://127.0.0.1:8123/lash-certificate/course-live/assets/index-routing-20261031-v3.js:9:82848)
+    at Zd (http://127.0.0.1:8123/lash-certificate/course-live/assets/index-routing-20261031-v3.js:9:128034)
+    at Jd (http://127.0.0.1:8123/lash-certificate/course-live/assets/index-routing-20261031-v3.js:9:127115)
+    at qd (http://127.0.0.1:8123/lash-certificate/course-live/assets/index-routing-20261031-v3.js:9:126953)
+    at Fd (http://127.0.0.1:8123/lash-certificate/course-live/assets/index-routing-20261031-v3.js:9:123676)
+    at Mf (http://127.0.0.1:8123/lash-certificate/course-live/assets/index-routing-20261031-v3.js:9:136126)
+    at Df (http://127.0.0.1:8123/lash-certificate/course-live/assets/index-routing-20261031-v3.js:9:134686)
+console.error: TypeError: (0 , _.useEffect) is not a function
+    at v (http://127.0.0.1:8123/lash-certificate/course-live/assets/CabinetShell-BD7mzXWO.js:1:2390)
+    at ns (http://127.0.0.1:8123/lash-certificate/course-live/assets/index-routing-20261031-v3.js:9:49215)
+    at Kc (http://127.0.0.1:8123/lash-certificate/course-live/assets/index-routing-20261031-v3.js:9:71923)
+    at pl (http://127.0.0.1:8123/lash-certificate/course-live/assets/index-routing-20261031-v3.js:9:82848)
+    at Zd (http://127.0.0.1:8123/lash-certificate/course-live/assets/index-routing-20261031-v3.js:9:128034)
+    at Jd (http://127.0.0.1:8123/lash-certificate/course-live/assets/index-routing-20261031-v3.js:9:127115)
+    at qd (http://127.0.0.1:8123/lash-certificate/course-live/assets/index-routing-20261031-v3.js:9:126953)
+    at Fd (http://127.0.0.1:8123/lash-certificate/course-live/assets/index-routing-20261031-v3.js:9:123676)
+    at Mf (http://127.0.0.1:8123/lash-certificate/course-live/assets/index-routing-20261031-v3.js:9:136126)
+    at Df (http://127.0.0.1:8123/lash-certificate/course-live/assets/index-routing-20261031-v3.js:9:134686)
+---
+CASE=active-student
+active=true
+url=http://127.0.0.1:8123/lash-certificate/course-live/cabinet?smoke=active-student
+nav_error=
+body=This page didn't load Something went wrong on our end. You can try refreshing or head back home. Try again Go home
+pageerror: Minified React error #418; visit https://react.dev/errors/418?args[]=HTML&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.
+console.error: TypeError: (0 , _.useEffect) is not a function
+    at v (http://127.0.0.1:8123/lash-certificate/course-live/assets/CabinetShell-BD7mzXWO.js:1:2390)
+    at ns (http://127.0.0.1:8123/lash-certificate/course-live/assets/index-routing-20261031-v3.js:9:49215)
+    at Kc (http://127.0.0.1:8123/lash-certificate/course-live/assets/index-routing-20261031-v3.js:9:71923)
+    at pl (http://127.0.0.1:8123/lash-certificate/course-live/assets/index-routing-20261031-v3.js:9:82848)
+    at Zd (http://127.0.0.1:8123/lash-certificate/course-live/assets/index-routing-20261031-v3.js:9:128034)
+    at Jd (http://127.0.0.1:8123/lash-certificate/course-live/assets/index-routing-20261031-v3.js:9:127115)
+    at qd (http://127.0.0.1:8123/lash-certificate/course-live/assets/index-routing-20261031-v3.js:9:126953)
+    at Fd (http://127.0.0.1:8123/lash-certificate/course-live/assets/index-routing-20261031-v3.js:9:123328)
+    at Mf (http://127.0.0.1:8123/lash-certificate/course-live/assets/index-routing-20261031-v3.js:9:136126)
+    at Df (http://127.0.0.1:8123/lash-certificate/course-live/assets/index-routing-20261031-v3.js:9:134686)
+console.error: TypeError: (0 , _.useEffect) is not a function
+    at v (http://127.0.0.1:8123/lash-certificate/course-live/assets/CabinetShell-BD7mzXWO.js:1:2390)
+    at ns (http://127.0.0.1:8123/lash-certificate/course-live/assets/index-routing-20261031-v3.js:9:49215)
+    at Kc (http://127.0.0.1:8123/lash-certificate/course-live/assets/index-routing-20261031-v3.js:9:71923)
+    at pl (http://127.0.0.1:8123/lash-certificate/course-live/assets/index-routing-20261031-v3.js:9:82848)
+    at Zd (http://127.0.0.1:8123/lash-certificate/course-live/assets/index-routing-20261031-v3.js:9:128034)
+    at Jd (http://127.0.0.1:8123/lash-certificate/course-live/assets/index-routing-20261031-v3.js:9:127115)
+    at qd (http://127.0.0.1:8123/lash-certificate/course-live/assets/index-routing-20261031-v3.js:9:126953)
+    at Fd (http://127.0.0.1:8123/lash-certificate/course-live/assets/index-routing-20261031-v3.js:9:123676)
+    at Mf (http://127.0.0.1:8123/lash-certificate/course-live/assets/index-routing-20261031-v3.js:9:136126)
+    at Df (http://127.0.0.1:8123/lash-certificate/course-live/assets/index-routing-20261031-v3.js:9:134686)
+console.error: TypeError: (0 , _.useEffect) is not a function
+    at v (http://127.0.0.1:8123/lash-certificate/course-live/assets/CabinetShell-BD7mzXWO.js:1:2390)
+    at ns (http://127.0.0.1:8123/lash-certificate/course-live/assets/index-routing-20261031-v3.js:9:49215)
+    at Kc (http://127.0.0.1:8123/lash-certificate/course-live/assets/index-routing-20261031-v3.js:9:71923)
+    at pl (http://127.0.0.1:8123/lash-certificate/course-live/assets/index-routing-20261031-v3.js:9:82848)
+    at Zd (http://127.0.0.1:8123/lash-certificate/course-live/assets/index-routing-20261031-v3.js:9:128034)
+    at Jd (http://127.0.0.1:8123/lash-certificate/course-live/assets/index-routing-20261031-v3.js:9:127115)
+    at qd (http://127.0.0.1:8123/lash-certificate/course-live/assets/index-routing-20261031-v3.js:9:126953)
+    at Fd (http://127.0.0.1:8123/lash-certificate/course-live/assets/index-routing-20261031-v3.js:9:123676)
+    at Mf (http://127.0.0.1:8123/lash-certificate/course-live/assets/index-routing-20261031-v3.js:9:136126)
+    at Df (http://127.0.0.1:8123/lash-certificate/course-live/assets/index-routing-20261031-v3.js:9:134686)
+---
