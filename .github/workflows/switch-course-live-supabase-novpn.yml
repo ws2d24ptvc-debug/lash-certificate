@@ -11,7 +11,7 @@ permissions:
 
 env:
   OLD_URL: 'https://ytolxddmtybtatadhyqj.supabase.co'
-  NEW_URL: 'https://gargantuan-odd-objectmodel--6nmzk9jh2r.replit.app'
+  NEW_URL: 'https://sparkling-disk-b67d.ws2d24ptvc.workers.dev'
   SUPABASE_KEY: 'sb_publishable_3jTxl7e4GIEbzQgPoUiNzw_OIkOax6w'
 
 jobs:
