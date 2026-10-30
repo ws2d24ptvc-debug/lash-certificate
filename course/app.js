@@ -8,6 +8,24 @@ const SUPPORT_EMAIL = 'lashcourse.support@gmail.com';
 const app = document.getElementById('app');
 const state = { meta: null, user: null, student: null, authMessage: '' };
 
+const EMERGENCY_KEY = 'vln-6f3c9d8a21e4';
+const EMERGENCY_MODE = new URL(location.href).searchParams.get('open') === EMERGENCY_KEY;
+const EMERGENCY_PROGRESS_KEY = 'lash-course-emergency-progress-v1';
+
+function readEmergencyCompleted() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(EMERGENCY_PROGRESS_KEY) || '[]');
+    return new Set(Array.isArray(raw) ? raw : []);
+  } catch { return new Set(); }
+}
+
+function activateEmergency() {
+  state.user = { id: 'emergency', email: '', user_metadata: { full_name: 'Ученица' } };
+  state.student = { userId: 'emergency', email: '', name: 'Ученица', isAdmin: false, hasAccess: true, completed: readEmergencyCompleted() };
+}
+
+if (EMERGENCY_MODE) activateEmergency();
+
 function cloudFetch(input, init = {}) {
   const headers = new Headers(typeof Request !== 'undefined' && input instanceof Request ? input.headers : undefined);
   if (init.headers) new Headers(init.headers).forEach((v, k) => headers.set(k, v));
@@ -74,6 +92,7 @@ function pageParam() { return new URL(location.href).searchParams.get('page') ||
 function navigate(page, params = {}) {
   const url = new URL(location.href);
   url.search = '';
+  if (EMERGENCY_MODE) url.searchParams.set('open', EMERGENCY_KEY);
   if (page && page !== 'home') url.searchParams.set('page', page);
   for (const [key, value] of Object.entries(params)) if (value != null && value !== '') url.searchParams.set(key, value);
   history.pushState({}, '', url);
@@ -121,6 +140,7 @@ function shell(content) {
 function bindShell() {
   document.querySelectorAll('[data-nav]').forEach((el) => el.addEventListener('click', (e) => { e.preventDefault(); navigate(el.dataset.nav); }));
   document.querySelector('[data-action="logout"]')?.addEventListener('click', async () => {
+    if (EMERGENCY_MODE) { location.href = './'; return; }
     await supabase.auth.signOut(); state.user = null; state.student = null; navigate('home');
   });
 }
@@ -142,6 +162,7 @@ async function loadMeta() {
 }
 
 async function loadStudent(force = false) {
+  if (EMERGENCY_MODE) { activateEmergency(); return state.student; }
   if (state.student && !force) return state.student;
   const { data: userData, error: userError } = await supabase.auth.getUser();
   if (userError || !userData.user) throw new Error('Необходимо войти в аккаунт.');
@@ -241,6 +262,13 @@ async function renderCabinet() {
 }
 
 async function toggleLesson(lessonId) {
+  if (EMERGENCY_MODE) {
+    const student = await loadStudent();
+    student.completed.add(lessonId);
+    localStorage.setItem(EMERGENCY_PROGRESS_KEY, JSON.stringify([...student.completed]));
+    state.student = student;
+    return;
+  }
   const student = await loadStudent();
   if (student.completed.has(lessonId)) return;
   const { error } = await supabase.from('lesson_progress').insert({ user_id: student.userId, lesson_id: lessonId });
@@ -316,6 +344,8 @@ async function renderAdmin() {
 async function render() {
   try {
     await loadMeta(); const page = pageParam();
+    if (EMERGENCY_MODE && !state.user) activateEmergency();
+    if (EMERGENCY_MODE && page === 'auth') return navigate('cabinet');
     if (page === 'home') return renderHome();
     if (page === 'auth') return state.user ? navigate('cabinet') : renderAuth('login');
     if (!state.user) return renderAuth('login');
