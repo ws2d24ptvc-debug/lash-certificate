@@ -1,0 +1,79 @@
+name: Fix student cabinet no-VPN auth guard
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/fix-student-cabinet-no-vpn.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch only the authenticated route guard and bust router cache
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          root = Path('course-live')
+          assets = root / 'assets'
+          old_index = 'index-routing-20261029-v2.js'
+          new_index = 'index-routing-20261031-v3.js'
+
+          src = assets / old_index
+          if not src.exists():
+              raise SystemExit(f'Missing {src}')
+
+          text = src.read_text()
+          old = 'beforeLoad:async()=>{let{data:e}=await se.auth.getUser();if(!e.user)throw d({to:`/auth`})}'
+          new = 'beforeLoad:async()=>{let{data:e}=await se.auth.getSession();if(!e.session?.user)throw d({to:`/auth`})}'
+
+          count = text.count(old)
+          if count != 1:
+              raise SystemExit(f'Expected exactly one authenticated getUser guard, found {count}')
+
+          patched = text.replace(old, new, 1)
+          assert old not in patched
+          assert patched.count(new) == 1
+          (assets / new_index).write_text(patched)
+
+          changed = 0
+          for p in list(root.rglob('*.html')) + list(assets.glob('*.js')):
+              if p.name == new_index:
+                  continue
+              s = p.read_text()
+              s2 = s.replace(old_index, new_index)
+              if s2 != s:
+                  p.write_text(s2)
+                  changed += 1
+
+          if changed < 2:
+              raise SystemExit(f'Expected multiple router references to update, got {changed}')
+
+          auth_route = (assets / 'auth-routing-20261029-v2.js').read_text()
+          if 'auth-DlScQRai.js' not in auth_route:
+              raise SystemExit('Auth entry is not the restored original; refusing to patch')
+
+          auth_html = (root / 'auth' / 'index.html').read_text()
+          cabinet_html = (root / 'cabinet' / 'index.html').read_text()
+          if new_index not in auth_html or new_index not in cabinet_html:
+              raise SystemExit('Fresh router URL was not written to auth/cabinet HTML')
+
+          Path('course-live/student-cabinet-no-vpn-fix.txt').write_text(
+              f'router={new_index}\nguard=getSession\nauth_entry=original\nstatus=patched\n'
+          )
+          print('Patched authenticated guard; rewritten references:', changed)
+          PY
+      - name: Commit student cabinet fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add course-live
+          git diff --cached --quiet && exit 0
+          git commit -m "Fix student cabinet auth guard for no-VPN access"
+          git push
