@@ -1,0 +1,49 @@
+name: Diagnose live auth settings
+
+on:
+  push:
+    paths:
+      - '.github/workflows/diagnose-live-auth-settings.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read live auth settings through current proxy
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          p=Path('course-live/assets/client-OS6V9nLy-studentfix5.js')
+          s=p.read_text(encoding='utf-8')
+          url=re.search(r'VITE_SUPABASE_URL:`([^`]+)`', s).group(1)
+          key=re.search(r'VITE_SUPABASE_PUBLISHABLE_KEY:`([^`]+)`', s).group(1)
+          Path('/tmp/auth_url').write_text(url)
+          Path('/tmp/auth_key').write_text(key)
+          PY
+          URL="$(cat /tmp/auth_url)/auth/v1/settings"
+          KEY="$(cat /tmp/auth_key)"
+          code=$(curl -sS -o /tmp/settings.json -w '%{http_code}' -H "apikey: $KEY" -H "Authorization: Bearer $KEY" "$URL")
+          mkdir -p course-live/diagnostics
+          {
+            echo "status=$code"
+            cat /tmp/settings.json
+            echo
+          } > course-live/diagnostics/live-auth-settings.txt
+          test "$code" = "200"
+      - name: Commit diagnostic result
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add course-live/diagnostics/live-auth-settings.txt
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'Record live auth settings diagnostic'
+          git push
