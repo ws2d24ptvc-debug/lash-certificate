@@ -6,10 +6,16 @@
   <meta name="theme-color" content="#080605" />
   <meta name="robots" content="noindex" />
   <title>Наращивание ресниц с нуля — Вера Лушина</title>
-  <link rel="stylesheet" href="./styles.css?v=emergency-static-20261030" />
+  <link rel="stylesheet" href="./styles.css?v=emergency-static-20261030b" />
 </head>
 <body>
   <div id="app" class="boot">Загрузка курса…</div>
-  <script type="module" src="./app.js?v=emergency-static-20261030"></script>
+  <script>
+    const emergency = new URL(location.href).searchParams.get('open') === 'vln-6f3c9d8a21e4';
+    const script = document.createElement('script');
+    script.type = 'module';
+    script.src = emergency ? './emergency-app.js?v=20261030b' : './app.js?v=20261030b';
+    document.body.appendChild(script);
+  </script>
 </body>
 </html>
