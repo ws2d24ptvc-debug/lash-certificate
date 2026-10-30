@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="robots" content="noindex,nofollow" />
+  <meta name="theme-color" content="#0b0807" />
+  <title>Ученицы и доступ — LASH ACADEMY</title>
+  <link rel="stylesheet" href="../assets/styles-Krg_QGwz.css" />
+  <style>
+    :root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;background:#080605;color:#f3e5dc;font-family:Manrope,system-ui,-apple-system,sans-serif}.wrap{max-width:980px;margin:0 auto;padding:20px 16px 56px}.top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0 22px;border-bottom:1px solid #3b281f}.brand{font-family:Georgia,serif;font-size:22px;letter-spacing:.12em;color:#f3e5dc;text-decoration:none}.brand small{display:block;font:10px Manrope,sans-serif;letter-spacing:.25em;color:#b99582}.nav{display:flex;gap:8px;flex-wrap:wrap}.nav a,.btn{appearance:none;border:1px solid #664332;background:#15100d;color:#ead9ce;border-radius:12px;padding:11px 14px;text-decoration:none;font:600 13px Manrope,sans-serif;cursor:pointer}.btn.primary{background:#dda27d;color:#1c0e09;border-color:#dda27d}.btn.danger{border-color:#8b4c43;color:#f0b3aa}.btn:disabled{opacity:.55;cursor:default}.eyebrow{margin-top:28px;color:#dca27e;font-size:11px;letter-spacing:.22em;text-transform:uppercase}.title{font:400 clamp(38px,8vw,58px)/1 Georgia,serif;margin:10px 0 8px}.sub{color:#bda89d;line-height:1.65;max-width:680px}.stats{display:grid;grid-template-columns:repeat(3,1fr);margin:26px 0;border:1px solid #3b281f;border-radius:18px;overflow:hidden;background:#120d0b}.stat{text-align:center;padding:18px 8px}.stat+.stat{border-left:1px solid #3b281f}.stat b{display:block;font:400 30px Georgia,serif}.stat span{font-size:11px;color:#bda89d}.tools{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:10px;margin:20px 0}.input,.select{width:100%;border:1px solid #4b3328;background:#100b09;color:#f3e5dc;border-radius:12px;padding:12px 13px;font-size:16px}.list{display:grid;gap:12px}.card{border:1px solid #3f2b22;background:#120d0b;border-radius:18px;padding:17px;display:grid;grid-template-columns:minmax(0,1fr) 170px 165px;gap:18px;align-items:center}.name{font-weight:700}.email{color:#bda89d;font-size:13px;word-break:break-all;margin-top:4px}.status{font-size:12px;margin-top:9px;color:#a99083}.active{color:#9bc4a6}.progressRow{display:flex;justify-content:space-between;font-size:11px;color:#bda89d;margin-bottom:7px}.bar{height:7px;border-radius:99px;background:#332219;overflow:hidden}.bar>i{display:block;height:100%;background:#dda27d}.msg{padding:36px 8px;text-align:center;color:#bda89d}.error{color:#efaaa1}.hidden{display:none!important}@media(max-width:720px){.top{align-items:flex-start;flex-direction:column}.tools{grid-template-columns:1fr 1fr}.tools .input{grid-column:1/-1}.card{grid-template-columns:1fr}.stats{grid-template-columns:repeat(3,1fr)}.nav{width:100%}.nav a{flex:1;text-align:center}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <a class="brand" href="../">⌒ LASH <small>ACADEMY</small></a>
+      <nav class="nav"><a href="../cabinet">Кабинет</a><a href="../">На сайт</a></nav>
+    </header>
+
+    <div id="loading" class="msg">Проверяем права администратора…</div>
+    <div id="denied" class="msg error hidden">Раздел доступен только администратору.</div>
+
+    <main id="app" class="hidden">
+      <div class="eyebrow">Администратор</div>
+      <h1 class="title">Ученицы и доступ</h1>
+      <p class="sub">После оплаты ученица регистрируется на сайте. Найдите её по имени или e-mail и откройте доступ к курсу.</p>
+
+      <section class="stats">
+        <div class="stat"><b id="countAll">0</b><span>Всего</span></div>
+        <div class="stat"><b id="countActive">0</b><span>Активны</span></div>
+        <div class="stat"><b id="countPending">0</b><span>Без доступа</span></div>
+      </section>
+
+      <div class="tools">
+        <input id="search" class="input" placeholder="Имя или e-mail" autocomplete="off" />
+        <select id="filter" class="select"><option value="all">Все</option><option value="pending">Неактивны</option><option value="active">Активны</option></select>
+        <button id="refresh" class="btn">Обновить</button>
+      </div>
+
+      <div id="notice" class="msg hidden"></div>
+      <section id="list" class="list"></section>
+    </main>
+  </div>
+
+  <script type="module">
+    import { t as supabase } from '../assets/client-OS6V9nLy.js';
+
+    const TOTAL_LESSONS = 35;
+    const state = { rows: [], query: '', filter: 'all', busy: null };
+    const $ = (id) => document.getElementById(id);
+    const esc = (v='') => String(v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+    async function requireAdmin() {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (error || !session?.user?.id) {
+        location.replace('../auth/?from=admin');
+        return null;
+      }
+      const { data: roles, error: roleError } = await supabase.from('user_roles').select('role').eq('user_id', session.user.id);
+      if (roleError) throw roleError;
+      if (!(roles || []).some(r => r.role === 'admin')) return null;
+      return session.user;
+    }
+
+    async function loadStudents() {
+      $('notice').classList.add('hidden');
+      $('list').innerHTML = '<div class="msg">Загрузка учениц…</div>';
+      const [profiles, access, progress, roles] = await Promise.all([
+        supabase.from('profiles').select('id, full_name, email, created_at').order('created_at', { ascending: false }),
+        supabase.from('course_access').select('user_id, is_active, activated_at, note'),
+        supabase.from('lesson_progress').select('user_id, lesson_id'),
+        supabase.from('user_roles').select('user_id, role'),
+      ]);
+      const failed = [profiles, access, progress, roles].find(x => x.error);
+      if (failed?.error) throw failed.error;
+      const admins = new Set((roles.data || []).filter(r => r.role === 'admin').map(r => r.user_id));
+      state.rows = (profiles.data || []).filter(p => !admins.has(p.id)).map(p => {
+        const a = (access.data || []).find(x => x.user_id === p.id);
+        const done = new Set((progress.data || []).filter(x => x.user_id === p.id).map(x => x.lesson_id)).size;
+        return { ...p, active: !!a?.is_active, activatedAt: a?.activated_at || null, percent: Math.round((Math.min(done, TOTAL_LESSONS) / TOTAL_LESSONS) * 100) };
+      });
+      render();
+    }
+
+    function render() {
+      const q = state.query.trim().toLowerCase();
+      const filtered = state.rows.filter(r => {
+        const matchQ = `${r.email || ''} ${r.full_name || ''}`.toLowerCase().includes(q);
+        const matchF = state.filter === 'all' || (state.filter === 'active' ? r.active : !r.active);
+        return matchQ && matchF;
+      });
+      $('countAll').textContent = state.rows.length;
+      $('countActive').textContent = state.rows.filter(r => r.active).length;
+      $('countPending').textContent = state.rows.filter(r => !r.active).length;
+      if (!filtered.length) {
+        $('list').innerHTML = `<div class="msg">${state.rows.length ? 'Ученицы не найдены' : 'После регистрации ученицы появятся здесь'}</div>`;
+        return;
+      }
+      $('list').innerHTML = filtered.map(r => `
+        <article class="card">
+          <div><div class="name">${esc(r.full_name || 'Имя не указано')}</div><div class="email">${esc(r.email || '')}</div><div class="status ${r.active ? 'active' : ''}">${r.active ? 'Активен' : 'Неактивен'}${r.active && r.activatedAt ? ' · ' + new Date(r.activatedAt).toLocaleDateString('ru-RU') : ' · Не активирован'}</div></div>
+          <div><div class="progressRow"><span>Пройдено</span><span>${r.percent}%</span></div><div class="bar"><i style="width:${r.percent}%"></i></div></div>
+          <button class="btn ${r.active ? 'danger' : 'primary'} accessBtn" data-id="${esc(r.id)}" data-active="${r.active ? '1' : '0'}" ${state.busy === r.id ? 'disabled' : ''}>${state.busy === r.id ? 'Сохраняем…' : r.active ? 'Закрыть доступ' : 'Открыть доступ'}</button>
+        </article>`).join('');
+      document.querySelectorAll('.accessBtn').forEach(btn => btn.addEventListener('click', () => changeAccess(btn.dataset.id, btn.dataset.active !== '1')));
+    }
+
+    async function changeAccess(userId, active) {
+      if (!active && !confirm('Закрыть доступ ученице? Прогресс сохранится.')) return;
+      state.busy = userId; render();
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.user?.id) throw new Error('Сессия завершена');
+        const { data: myRoles, error: roleError } = await supabase.from('user_roles').select('role').eq('user_id', session.user.id);
+        if (roleError || !(myRoles || []).some(r => r.role === 'admin')) throw new Error('Нет прав администратора');
+        const { data: targetRoles, error: targetError } = await supabase.from('user_roles').select('role').eq('user_id', userId);
+        if (targetError) throw targetError;
+        if ((targetRoles || []).some(r => r.role === 'admin')) throw new Error('Доступ администратора не изменяется');
+        const now = new Date().toISOString();
+        const { error } = await supabase.from('course_access').upsert({ user_id: userId, is_active: active, activated_at: active ? now : null, updated_at: now }, { onConflict: 'user_id' });
+        if (error) throw error;
+        await loadStudents();
+        showNotice(active ? 'Доступ открыт ✓' : 'Доступ закрыт ✓', false);
+      } catch (e) {
+        console.error(e);
+        showNotice(`Не удалось изменить доступ: ${e?.message || 'ошибка'}`, true);
+      } finally { state.busy = null; render(); }
+    }
+
+    function showNotice(text, isError) {
+      $('notice').textContent = text;
+      $('notice').classList.remove('hidden', 'error');
+      if (isError) $('notice').classList.add('error');
+    }
+
+    $('search').addEventListener('input', e => { state.query = e.target.value; render(); });
+    $('filter').addEventListener('change', e => { state.filter = e.target.value; render(); });
+    $('refresh').addEventListener('click', () => loadStudents().catch(showLoadError));
+
+    function showLoadError(e) {
+      console.error(e);
+      $('list').innerHTML = '';
+      showNotice(`Не удалось загрузить учениц: ${e?.message || 'ошибка'}`, true);
+    }
+
+    try {
+      const user = await requireAdmin();
+      $('loading').classList.add('hidden');
+      if (!user) {
+        $('denied').classList.remove('hidden');
+      } else {
+        $('app').classList.remove('hidden');
+        await loadStudents();
+      }
+    } catch (e) {
+      $('loading').classList.add('hidden');
+      $('app').classList.remove('hidden');
+      showLoadError(e);
+    }
+  </script>
+</body>
+</html>
