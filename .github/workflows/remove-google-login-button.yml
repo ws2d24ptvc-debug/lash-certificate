@@ -1,0 +1,48 @@
+name: Remove Google login button
+
+on:
+  push:
+    paths:
+      - '.github/workflows/remove-google-login-button.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Remove Google login button visually only
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('course-live/auth/index.html')
+          text = path.read_text(encoding='utf-8')
+          marker = 'hide-google-login-20261031'
+          if marker in text:
+              print('Already patched')
+              raise SystemExit(0)
+
+          script = r'''<script data-fix="hide-google-login-20261031">(function(){function hideGoogle(){for(const b of document.querySelectorAll('button')){if((b.textContent||'').trim()==='Продолжить с Google'){const prev=b.previousElementSibling;if(prev&&((prev.textContent||'').trim()==='или'))prev.remove();b.remove();}}}hideGoogle();new MutationObserver(hideGoogle).observe(document.body,{childList:true,subtree:true});})();</script>'''
+
+          if '</body>' not in text:
+              raise SystemExit('Missing </body>')
+          text = text.replace('</body>', script + '</body>', 1)
+          path.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Commit
+        run: |
+          if git diff --quiet; then
+            echo "No changes needed"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add course-live/auth/index.html
+          git commit -m "Remove Google login button from auth page"
+          git push
