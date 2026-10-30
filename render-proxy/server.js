@@ -1,6 +1,7 @@
 import http from 'node:http';
 
 const TARGET = 'https://ytolxddmtybtatadhyqj.supabase.co';
+const NEW_TARGET = 'https://zpqixlphifyzphesqgxs.supabase.co';
 const PORT = Number(process.env.PORT || 3000);
 
 function corsHeaders(requestedHeaders = '') {
@@ -36,17 +37,20 @@ const server = http.createServer(async (req, res) => {
   const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
 
   if (url.pathname === '/health') {
-    return write(res, 200, 'ok-cors4', {
+    return write(res, 200, 'ok-cors5-dual', {
       ...cors,
       'Content-Type': 'text/plain; charset=utf-8'
     });
   }
 
+  const useNewBackend = url.pathname === '/new' || url.pathname.startsWith('/new/');
+  const upstreamPath = useNewBackend ? (url.pathname.slice(4) || '/') : url.pathname;
+
   const allowed =
-    url.pathname.startsWith('/auth/v1/') ||
-    url.pathname.startsWith('/rest/v1/') ||
-    url.pathname.startsWith('/storage/v1/') ||
-    url.pathname.startsWith('/functions/v1/');
+    upstreamPath.startsWith('/auth/v1/') ||
+    upstreamPath.startsWith('/rest/v1/') ||
+    upstreamPath.startsWith('/storage/v1/') ||
+    upstreamPath.startsWith('/functions/v1/');
 
   if (!allowed) {
     return write(res, 404, 'Not found', {
@@ -68,7 +72,8 @@ const server = http.createServer(async (req, res) => {
   }
   headers.set('accept-encoding', 'identity');
 
-  const targetUrl = new URL(url.pathname + url.search, TARGET);
+  const target = useNewBackend ? NEW_TARGET : TARGET;
+  const targetUrl = new URL(upstreamPath + url.search, target);
 
   try {
     const upstream = await fetch(targetUrl, {
