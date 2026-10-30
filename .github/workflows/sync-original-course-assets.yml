@@ -1,0 +1,118 @@
+name: Sync original course artwork
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/sync-original-course-assets.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download latest verified original course build
+        env:
+          BUILD_URL: 'https://sdmntprcentralus.oaiusercontent.com/files/00000000-f7d8-81f5-a22e-7d2fc7baca40/raw?se=2026-10-30T00%3A05%3A20Z&sp=r&sv=2026-02-06&sr=b&scid=40e511da-cf29-5b80-918f-18320d11c692&skoid=78501c7f-f65d-4e8d-9110-bed29e1beb41&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-10-29T23%3A27%3A21Z&ske=2026-10-30T23%3A27%3A21Z&sks=b&skv=2026-02-06&sig=X9KiXIGG1M7afrzU8iOD%2BzWl3auuHkdBlpHp%2BJwV6H8%3D'
+        run: |
+          curl -fL "$BUILD_URL" -o /tmp/course.zip
+          rm -rf /tmp/course
+          mkdir -p /tmp/course
+          unzip -q /tmp/course.zip -d /tmp/course
+          test -d /tmp/course/public
+
+      - name: Upload only original visual assets needed by Pages course
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python - <<'PY'
+          import os, json, base64, urllib.request, urllib.error, urllib.parse
+          from pathlib import Path
+
+          src = Path('/tmp/course/public')
+          mapping = {
+            '4F5EB1B9-F85A-43F5-9BB4-BECC27BFA595.PNG': 'course/assets/hero.png',
+            '746E6A51-A5F1-429B-B8CC-48C7F2D007A3.PNG': 'course/assets/module-01.png',
+            '785E2886-A06B-4B87-92F7-9B446CE16CFC.PNG': 'course/assets/module-02.png',
+            '65C61FC5-947F-4ADC-8A33-722D152D58A8.PNG': 'course/assets/module-03.png',
+            'Yvhjbg.PNG': 'course/assets/module-04.png',
+            '7D521637-9E9A-47CF-ABE0-310F75EC25CD.PNG': 'course/assets/module-05.png',
+            'Ppppppp.PNG': 'course/assets/module-06.png',
+            'C422E4CE-6585-453F-B280-676D04845B9F.PNG': 'course/assets/module-07.png',
+            '2EA4FF6A-DA5A-45A6-BECD-3EA04DE090D6.PNG': 'course/assets/module-08.png',
+            'C1E03794-5EB4-4FC3-AD6A-21795907586B.PNG': 'course/assets/module-09.png',
+            'FC362664-FF35-4E44-A3BC-C5759A2E67A7.PNG': 'course/assets/module-10.png',
+            'ABA61218-5070-4828-8A31-0DF57830FB83.PNG': 'course/assets/module-11.png',
+            '03646681-AC73-4C53-896A-CAD83940C894.PNG': 'course/assets/module-12.png',
+            '15C8523C-F63F-4E3C-9A1C-2ED81D71F953.PNG': 'course/assets/module-13.png',
+            'Нооо Олд.PNG': 'course/assets/module-14.png',
+            'Wewww.PNG': 'course/assets/lesson-osnovy-stroenie.png',
+            '756918F4-D959-4AE8-89CB-C813F236B33D.PNG': 'course/assets/lesson-glaz-anatomiya.png',
+            'B5D921A6-41F2-4432-9001-80ECB69DD1C8.PNG': 'course/assets/lesson-glaz-stroenie-resnitsy.png',
+            'BDADD85A-3DDE-4528-9092-FBB7CAAB7B19.PNG': 'course/assets/lesson-glaz-fazy-rosta.png',
+            '74C195D5-ED7E-42A4-B550-3629875C29C4.PNG': 'course/assets/lesson-glaz-napravlenie.png',
+            'E4D39C3F-FD0F-4858-8593-699612E2EF97.PNG': 'course/assets/lesson-glaz-ocenka.png',
+            'A15CB9E7-8366-43EE-A778-D7BF7BEB8433.PNG': 'course/assets/lesson-materialy-pincety.png',
+            '6B6161E2-DCBE-49A2-A7EB-18B9442E4DFB.PNG': 'course/assets/lesson-materialy-resnitsy.png',
+            '9B70AD2E-D802-4776-93BB-AD6650E9D517.PNG': 'course/assets/lesson-materialy-izolyaciya.png',
+            '5854230B-AD45-481C-9903-AC9687728B8C.PNG': 'course/assets/lesson-materialy-podgotovka.png',
+            'C1931889-16D6-4405-92FF-B437FA1DC2E4.PNG': 'course/assets/lesson-materialy-kley.png',
+            '    modul4-2-new.png.PNG': 'course/assets/lesson-bezopasnost-pincety.png',
+            'Дотри.PNG': 'course/assets/lesson-podgotovka-protivopokazaniya.png',
+            'Хтт ли ни ш.PNG': 'course/assets/lesson-podgotovka-izolyaciya.png',
+            'Три то .PNG': 'course/assets/lesson-podgotovka-materialy.png',
+            'Дома но.PNG': 'course/assets/lesson-ruka-postanovka.png',
+            '43124A7F-3D3D-4AC6-ABE4-146B7062C8C2.PNG': 'course/assets/lesson-klassika-tehnika.png',
+            'EB71D563-806F-417F-A547-5BA2AA6A6B91.PNG': 'course/assets/lesson-modelirovanie-shema.png',
+            'DF85C76B-F6A5-426B-999B-66656028DDBE.PNG': 'course/assets/lesson-modelirovanie-opushennyi.png',
+            '694427F7-F514-446A-B31F-F1C2BAF9BF1A.PNG': 'course/assets/lesson-modelirovanie-lisiy.png',
+            '71634E94-A3CC-48FE-8E7C-5F470E1664E8.PNG': 'course/assets/lesson-modelirovanie-naturalnyi.png',
+            '833E790C-03FF-4743-A995-E4465BEC42C3.JPEG': 'course/assets/lesson-modelirovanie-kukolnyi.jpg',
+            'F9F0F611-614A-4602-9551-0D5745C7AC9F.PNG': 'course/assets/lesson-modelirovanie-belichiy.png',
+            '315CF89B-1FC3-4165-9B4A-77899408C50E.PNG': 'course/assets/lesson-modelirovanie-kim.png',
+            '45ABBB83-F597-47FE-950B-7FB4E5B11EC9.PNG': 'course/assets/lesson-modelirovanie-mokryi.png',
+            'FFFFD267-3290-4547-B328-8D9441024DB7.PNG': 'course/assets/lesson-oshibki-tipichnye.png',
+            '6DBCC1C9-C651-424C-8651-879AD17DD290.PNG': 'course/assets/lesson-oshibki-snyatie.png',
+            '5A6DBB03-0991-4A24-8E0B-2EB548647099.PNG': 'course/assets/lesson-obemy-puchki.png',
+            '7812B8FD-314A-45AE-A980-E68B21FC6BB7.PNG': 'course/assets/lesson-effekty-bazovye.png',
+            'A3CAB6F0-9FFA-47D1-B601-B6A70CDECD6C.PNG': 'course/assets/lesson-sovremennye-mokryi.png',
+            'E1743758-54B8-4E2E-ADE1-FEFA6799F62A.PNG': 'course/assets/lesson-sovremennye-kim.png',
+            '29DCC8A4-A148-400E-8E4C-C81E3EC62A72.PNG': 'course/assets/lesson-klient-konsultaciya.png',
+          }
+
+          missing=[name for name in mapping if not (src/name).is_file()]
+          if missing:
+            raise SystemExit(f'Missing source assets: {missing}')
+
+          token=os.environ['GH_TOKEN']
+          repo=os.environ['GITHUB_REPOSITORY']
+          headers={'Authorization':f'Bearer {token}','Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28','User-Agent':'course-assets-sync'}
+
+          for i,(name,dest) in enumerate(mapping.items(),1):
+            data=(src/name).read_bytes()
+            encoded_path=urllib.parse.quote(dest, safe='/')
+            api=f'https://api.github.com/repos/{repo}/contents/{encoded_path}'
+            sha=None
+            try:
+              req=urllib.request.Request(api,headers=headers)
+              with urllib.request.urlopen(req) as r:
+                sha=json.load(r).get('sha')
+            except urllib.error.HTTPError as e:
+              if e.code != 404: raise
+            payload={'message':f'Add original course asset {i:02d}/{len(mapping)}','content':base64.b64encode(data).decode(),'branch':'main'}
+            if sha: payload['sha']=sha
+            body=json.dumps(payload).encode()
+            req=urllib.request.Request(api,data=body,headers={**headers,'Content-Type':'application/json'},method='PUT')
+            with urllib.request.urlopen(req) as r:
+              if r.status not in (200,201): raise SystemExit(f'Upload failed {dest}: {r.status}')
+            print(f'{i}/{len(mapping)} {dest} {len(data)} bytes')
+          PY
+
+      - name: Verify staged assets
+        run: |
+          for f in hero.png module-01.png module-07.png module-09.png lesson-bezopasnost-pincety.png lesson-modelirovanie-kukolnyi.jpg lesson-klient-konsultaciya.png; do
+            curl -fL --retry 5 "https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/main/course/assets/$f" -o "/tmp/$f"
+            test -s "/tmp/$f"
+          done
