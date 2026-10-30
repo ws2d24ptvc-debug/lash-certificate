@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Lash Academy — проверка Webflow</title>
+  <style>
+    :root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;min-height:100vh;background:#050403;color:#f4ece7;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;display:flex;align-items:center;justify-content:center;padding:24px}.card{width:min(760px,100%);border:1px solid #6a4333;border-radius:28px;background:#130d0a;padding:34px 28px}.eyebrow{font-size:14px;letter-spacing:.18em;text-transform:uppercase;color:#dda987;margin-bottom:20px}h1{font-size:clamp(34px,8vw,58px);line-height:1.06;margin:0 0 24px;font-weight:500}p{font-size:20px;line-height:1.55;color:#d5c8c1;margin:0}.ok{color:#a9e5bd}.bad{color:#ffb4a9}.small{font-size:15px;margin-top:18px;opacity:.75;word-break:break-word}
+  </style>
+</head>
+<body>
+  <main class="card">
+    <div class="eyebrow">Lash Academy · техническая проверка</div>
+    <h1 id="title">Проверяю Webflow без VPN…</h1>
+    <p id="detail">Никакие данные аккаунта не используются.</p>
+    <p class="small" id="extra"></p>
+  </main>
+<script>
+(async () => {
+  const title = document.getElementById('title');
+  const detail = document.getElementById('detail');
+  const extra = document.getElementById('extra');
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 12000);
+  try {
+    const started = Date.now();
+    const r = await fetch('https://lash-certificate.webflow.io/health?v=' + Date.now(), {
+      method: 'GET',
+      mode: 'cors',
+      cache: 'no-store',
+      signal: controller.signal
+    });
+    const text = await r.text();
+    clearTimeout(timer);
+    if (r.ok && text.trim() === 'ok') {
+      title.textContent = '✅ Webflow работает без VPN';
+      title.className = 'ok';
+      detail.textContent = 'Браузерный запрос к новому backend прошёл успешно.';
+      extra.textContent = 'HTTP ' + r.status + ' · ' + (Date.now() - started) + ' мс';
+    } else {
+      title.textContent = '❌ Webflow ответил с ошибкой';
+      title.className = 'bad';
+      detail.textContent = 'Ответ получен, но он не соответствует ожидаемому.';
+      extra.textContent = 'HTTP ' + r.status + ' · ' + text.slice(0,160);
+    }
+  } catch (e) {
+    clearTimeout(timer);
+    title.textContent = e && e.name === 'AbortError' ? '⏱ Webflow не ответил без VPN' : '❌ Webflow не прошёл проверку';
+    title.className = 'bad';
+    detail.textContent = 'Браузерный запрос к новому backend не завершился.';
+    extra.textContent = String(e);
+  }
+})();
+</script>
+</body>
+</html>
