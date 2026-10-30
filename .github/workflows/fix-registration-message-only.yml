@@ -1,0 +1,55 @@
+name: Fix registration message only
+
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-registration-message-only.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch-copy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Replace misleading registration message without touching auth logic
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          targets = [
+              Path('course-live/index.html'),
+              Path('course-live/auth/index.html'),
+          ]
+
+          marker = 'registration-copy-fix-20261031'
+          script = r'''<script data-fix="registration-copy-fix-20261031">(function(){const oldText='Мы отправили письмо для подтверждения email. Перейдите по ссылке из письма, затем войдите.';const newText='Регистрация завершена. Вернитесь ко входу и войдите с указанной почтой и паролем. Доступ к курсу откроет администратор после подтверждения покупки.';function fix(){const w=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);let n;while(n=w.nextNode()){if(n.nodeValue&&n.nodeValue.includes(oldText))n.nodeValue=n.nodeValue.replace(oldText,newText)}}fix();new MutationObserver(fix).observe(document.body,{childList:true,subtree:true,characterData:true})})();</script>'''
+
+          changed = []
+          for path in targets:
+              text = path.read_text(encoding='utf-8')
+              if marker in text:
+                  continue
+              if '</body>' not in text:
+                  raise SystemExit(f'Missing </body> in {path}')
+              text = text.replace('</body>', script + '</body>', 1)
+              path.write_text(text, encoding='utf-8')
+              changed.append(str(path))
+
+          print('Changed:', changed)
+          PY
+
+      - name: Commit copy-only fix
+        run: |
+          if git diff --quiet; then
+            echo "No changes needed"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add course-live/index.html course-live/auth/index.html
+          git commit -m "Fix registration success message only"
+          git push
