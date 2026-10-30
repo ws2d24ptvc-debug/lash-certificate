@@ -2,7 +2,7 @@ import http from 'node:http';
 
 const TARGET = 'https://ytolxddmtybtatadhyqj.supabase.co';
 const ALLOWED_ORIGIN = 'https://ws2d24ptvc-debug.github.io';
-const PORT = Number(process.env.PORT || 10000);
+const PORT = Number(process.env.PORT || 3000);
 
 function corsHeaders(req) {
   const requested = req.headers['access-control-request-headers'] ||
