@@ -1,0 +1,98 @@
+name: Fresh student module graph
+
+on:
+  push:
+    paths:
+      - '.github/workflows/fresh-student-module-graph.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  freshen:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Clone reachable JS graph under fresh URLs
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          root = Path('course-live')
+          assets = root / 'assets'
+          tag = 'studentfix5'
+          htmls = list(root.rglob('*.html'))
+          js_files = {p.name: p for p in assets.glob('*.js') if f'-{tag}.js' not in p.name}
+          pattern = re.compile(r'(?:\./|assets/)([A-Za-z0-9_.-]+\.js)')
+
+          reachable = set()
+          queue = []
+          for p in htmls:
+              for name in pattern.findall(p.read_text()):
+                  if name in js_files and name not in reachable:
+                      reachable.add(name); queue.append(name)
+          while queue:
+              name = queue.pop()
+              text = js_files[name].read_text()
+              for dep in pattern.findall(text):
+                  if dep in js_files and dep not in reachable:
+                      reachable.add(dep); queue.append(dep)
+
+          if len(reachable) < 10:
+              raise SystemExit(f'Unexpectedly small module graph: {len(reachable)}')
+
+          mapping = {}
+          for name in sorted(reachable):
+              if not name.endswith('.js'):
+                  continue
+              mapping[name] = name[:-3] + f'-{tag}.js'
+
+          # Create a fully fresh, internally consistent copy of the reachable graph.
+          for old, new in mapping.items():
+              text = js_files[old].read_text()
+              for src, dst in mapping.items():
+                  text = text.replace(src, dst)
+              (assets / new).write_text(text)
+
+          # Point all static entry HTML files at the fresh graph.
+          changed_html = 0
+          for p in htmls:
+              text = p.read_text()
+              new_text = text
+              for src, dst in mapping.items():
+                  new_text = new_text.replace(src, dst)
+              if new_text != text:
+                  p.write_text(new_text)
+                  changed_html += 1
+
+          if changed_html < 3:
+              raise SystemExit(f'Expected several HTML entries to change, got {changed_html}')
+
+          # Verify the student cabinet path specifically uses fresh assets.
+          cabinet_html = (root / 'cabinet' / 'index.html').read_text()
+          if tag not in cabinet_html:
+              raise SystemExit('Cabinet HTML does not reference fresh graph')
+          fresh_shells = [v for k,v in mapping.items() if k == 'CabinetShell-studentfix-20261031-v2.js']
+          if len(fresh_shells) != 1:
+              raise SystemExit(f'Expected fixed CabinetShell in graph, got {fresh_shells}')
+          shell = (assets / fresh_shells[0]).read_text()
+          if 'E.useEffect' not in shell:
+              raise SystemExit('Fresh CabinetShell lost React hook fix')
+
+          (root / 'student-module-graph-fresh.txt').write_text(
+              f'tag={tag}\nmodules={len(mapping)}\nhtml_entries={changed_html}\nstatus=fresh\n'
+          )
+          Path('/tmp/fresh-js-list.txt').write_text('\n'.join(str(assets / v) for v in mapping.values()))
+          print('fresh modules', len(mapping), 'html entries', changed_html)
+          PY
+          while IFS= read -r f; do node --check "$f"; done </tmp/fresh-js-list.txt
+      - name: Commit fresh graph
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add course-live
+          git diff --cached --quiet && exit 0
+          git commit -m 'Publish fresh student cabinet module graph'
+          git push
