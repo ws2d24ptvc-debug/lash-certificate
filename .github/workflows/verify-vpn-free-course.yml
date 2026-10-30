@@ -1,0 +1,47 @@
+name: Verify VPN-free course
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/verify-vpn-free-course.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check JavaScript syntax
+        run: node --check course/app.js
+      - name: Verify course structure and all original assets
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          meta=json.load(open('course/course-meta.json'))
+          hidden={'osnovy-cikl','osnovy-protivopokazaniya','prodvizhenie-start','bezopasnost-sanitariya'}
+          visible=[l for m in meta['modules'] for l in m['lessons'] if l['id'] not in hidden]
+          assert len(visible)==32, len(visible)
+          assert len(meta['modules'])==14
+          required=[Path('course/assets/hero.png')]
+          required += [Path(f'course/assets/module-{i:02d}.png') for i in range(1,15)]
+          lesson_ids=[
+          'osnovy-stroenie','glaz-anatomiya','glaz-stroenie-resnitsy','glaz-fazy-rosta','glaz-napravlenie','glaz-ocenka',
+          'materialy-pincety','materialy-resnitsy','materialy-izolyaciya','materialy-podgotovka','materialy-kley','bezopasnost-pincety',
+          'podgotovka-protivopokazaniya','podgotovka-izolyaciya','podgotovka-materialy','ruka-postanovka','klassika-tehnika',
+          'modelirovanie-shema','modelirovanie-opushennyi','modelirovanie-lisiy','modelirovanie-naturalnyi','modelirovanie-belichiy','modelirovanie-kim','modelirovanie-mokryi',
+          'oshibki-tipichnye','oshibki-snyatie','obemy-puchki','effekty-bazovye','sovremennye-mokryi','sovremennye-kim','klient-konsultaciya']
+          required += [Path(f'course/assets/lesson-{x}.png') for x in lesson_ids]
+          required += [Path('course/assets/lesson-modelirovanie-kukolnyi.jpg')]
+          missing=[str(p) for p in required if not p.is_file() or p.stat().st_size<1000]
+          assert not missing, missing
+          js=Path('course/app.js').read_text()
+          assert 'certificate-v13.html' in js
+          assert "slice(0, 13)" in js
+          assert 'lesson-bezopasnost-pincety.png' in js
+          assert 'module-14.png' in js
+          print(f'OK: 32 student lessons, {len(required)} original visual assets, v13 certificate')
+          PY
