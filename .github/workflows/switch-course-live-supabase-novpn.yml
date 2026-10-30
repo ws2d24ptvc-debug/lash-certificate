@@ -1,0 +1,89 @@
+name: Switch course-live to direct Supabase
+
+on:
+  push:
+    paths:
+      - '.github/workflows/switch-course-live-supabase-novpn.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  OLD_URL: 'https://c--eb1598e0-facf-4633-be7b-c7b847af05a2-prod.lovable.cloud'
+  NEW_URL: 'https://ytolxddmtybtatadhyqj.supabase.co'
+  SUPABASE_KEY: 'sb_publishable_3jTxl7e4GIEbzQgPoUiNzw_OIkOax6w'
+
+jobs:
+  switch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify direct Supabase is reachable
+        shell: bash
+        run: |
+          set -euo pipefail
+          code=$(curl -sS -o /tmp/settings.json -w '%{http_code}' \
+            -H "apikey: $SUPABASE_KEY" \
+            "$NEW_URL/auth/v1/settings")
+          echo "direct_supabase_settings_http=$code"
+          test "$code" = "200"
+
+      - name: Remove Lovable Cloud dependency from current GitHub Pages build
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import os
+
+          old = os.environ['OLD_URL']
+          new = os.environ['NEW_URL']
+          root = Path('course-live')
+          changed = []
+
+          for path in root.rglob('*'):
+              if not path.is_file() or path.suffix.lower() not in {'.js', '.html', '.json', '.txt', '.css'}:
+                  continue
+              try:
+                  text = path.read_text(encoding='utf-8')
+              except UnicodeDecodeError:
+                  continue
+              if old in text:
+                  count = text.count(old)
+                  path.write_text(text.replace(old, new), encoding='utf-8')
+                  changed.append((str(path), count))
+
+          if not changed:
+              print('No Lovable Cloud endpoint remains in course-live; already switched.')
+          else:
+              for path, count in changed:
+                  print(f'replaced {count} occurrence(s) in {path}')
+
+          leftovers = []
+          for path in root.rglob('*'):
+              if not path.is_file() or path.suffix.lower() not in {'.js', '.html', '.json', '.txt', '.css'}:
+                  continue
+              try:
+                  if old in path.read_text(encoding='utf-8'):
+                      leftovers.append(str(path))
+              except UnicodeDecodeError:
+                  pass
+          if leftovers:
+              raise SystemExit('Lovable Cloud endpoint still present: ' + ', '.join(leftovers))
+          PY
+
+      - name: Commit direct-backend build
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add course-live
+          if git diff --cached --quiet; then
+            echo 'No build changes to commit'
+          else
+            git commit -m 'Use direct Supabase in VPN-free course build'
+            git push
+          fi
