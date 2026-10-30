@@ -1,0 +1,31 @@
+name: Diagnose new auth settings
+
+on:
+  push:
+    paths:
+      - '.github/workflows/diagnose-new-auth-settings.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read public auth settings
+        env:
+          API_URL: https://zpqixlphifyzphesqgxs.supabase.co
+          API_KEY: sb_publishable_4CCOM_y--DyR87goWV3mPQ_givZCJcO
+        run: |
+          mkdir -p course-live/diagnostics
+          curl -fsS -H "apikey: $API_KEY" "$API_URL/auth/v1/settings" > course-live/diagnostics/new-auth-settings.json
+          cat course-live/diagnostics/new-auth-settings.json
+      - name: Commit diagnostics
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add course-live/diagnostics/new-auth-settings.json
+          git commit -m 'Record new auth settings diagnostic' || exit 0
+          git push
