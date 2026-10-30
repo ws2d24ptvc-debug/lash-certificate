@@ -6,6 +6,7 @@ on:
       - webflow-auth-proxy
     paths:
       - '.github/workflows/generate-webflow-lock.yml'
+      - 'package.json'
   workflow_dispatch:
 
 permissions:
@@ -39,5 +40,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add package-lock.json
-          git commit -m "Add npm lockfile for Webflow Cloud"
+          git commit -m "Refresh npm lockfile for Webflow Cloud"
           git push origin HEAD:webflow-auth-proxy
