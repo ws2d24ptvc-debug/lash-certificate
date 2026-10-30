@@ -1,0 +1,26 @@
+name: Test Lovable Cloud backend
+
+on:
+  push:
+    paths:
+      - '.github/workflows/test-lovable-cloud.yml'
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check Lovable Cloud Supabase gateway
+        shell: bash
+        env:
+          TARGET: 'https://c--eb1598e0-facf-4633-be7b-c7b847af05a2-prod.lovable.cloud'
+          SUPABASE_KEY: 'sb_publishable_3jTxl7e4GIEbzQgPoUiNzw_OIkOax6w'
+        run: |
+          set -euo pipefail
+          code=$(curl -L --connect-timeout 10 --max-time 20 -sS -o /tmp/body.txt -w '%{http_code}' \
+            -H "apikey: $SUPABASE_KEY" \
+            "$TARGET/auth/v1/settings")
+          echo "http=$code"
+          head -c 300 /tmp/body.txt || true
+          echo
+          test "$code" = "200"
