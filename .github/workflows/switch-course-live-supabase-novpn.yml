@@ -10,9 +10,8 @@ permissions:
   contents: write
 
 env:
-  OLD_URL: 'https://ytolxddmtybtatadhyqj.supabase.co'
-  NEW_URL: 'https://sparkling-disk-b67d.ws2d24ptvc.workers.dev'
-  SUPABASE_KEY: 'sb_publishable_3jTxl7e4GIEbzQgPoUiNzw_OIkOax6w'
+  OLD_URL: 'https://sparkling-disk-b67d.ws2d24ptvc.workers.dev'
+  NEW_URL: 'https://br-purple-bonus-b9gcitpk-lashproxy.compute.c-7.eu-central-1.aws.neon.tech'
 
 jobs:
   switch:
@@ -20,17 +19,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Verify proxy auth endpoint
+      - name: Verify Neon backend
         shell: bash
         run: |
           set -euo pipefail
-          code=$(curl -L -sS -o /tmp/settings.json -w '%{http_code}' \
-            -H "apikey: $SUPABASE_KEY" \
-            "$NEW_URL/auth/v1/settings")
-          echo "proxy_settings_http=$code"
+          code=$(curl -L -sS -o /tmp/health.txt -w '%{http_code}' "$NEW_URL/health")
+          echo "neon_health_http=$code"
+          cat /tmp/health.txt
           test "$code" = "200"
+          grep -qx 'ok' /tmp/health.txt
 
-      - name: Switch current GitHub Pages build to proxy
+      - name: Switch current GitHub Pages build to Neon
         shell: bash
         run: |
           set -euo pipefail
@@ -44,7 +43,7 @@ jobs:
               except UnicodeDecodeError: continue
               if old in text:
                   n=text.count(old); path.write_text(text.replace(old,new),encoding='utf-8'); changed.append((str(path),n))
-          if not changed: raise SystemExit('Direct Supabase URL not found; refusing blind patch')
+          if not changed: raise SystemExit('Cloudflare proxy URL not found; refusing blind patch')
           for path,n in changed: print(f'replaced {n} occurrence(s) in {path}')
           leftovers=[]
           for path in root.rglob('*'):
@@ -52,10 +51,10 @@ jobs:
                   try:
                       if old in path.read_text(encoding='utf-8'): leftovers.append(str(path))
                   except UnicodeDecodeError: pass
-          if leftovers: raise SystemExit('Direct Supabase endpoint remains: '+', '.join(leftovers))
+          if leftovers: raise SystemExit('Cloudflare proxy endpoint remains: '+', '.join(leftovers))
           PY
 
-      - name: Commit VPN-free proxy build
+      - name: Commit Neon-backed course build
         shell: bash
         run: |
           set -euo pipefail
@@ -65,6 +64,6 @@ jobs:
           if git diff --cached --quiet; then
             echo 'No build changes to commit'
           else
-            git commit -m 'Use VPN-free auth proxy in course build'
+            git commit -m 'Use Neon backend for course build'
             git push
           fi
