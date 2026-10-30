@@ -1,0 +1,11 @@
+course=200
+auth=200
+cabinet=200
+certificate=200
+lesson=200
+client_asset=200
+client_direct_supabase=yes
+client_lovable_cloud=removed
+direct_supabase_settings=200
+lesson_id=podgotovka-izolyaciya
+checked_at=2026-10-30T09:19:22Z
