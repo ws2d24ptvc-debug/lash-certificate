@@ -1,0 +1,48 @@
+name: Diagnose student backend through no-VPN proxy
+
+on:
+  push:
+    paths:
+      - '.github/workflows/diagnose-student-backend.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Probe auth and REST routes
+        shell: bash
+        env:
+          BASE: 'https://lash-course-auth-proxy.layero.app'
+          KEY: 'sb_publishable_3jTxl7e4GIEbzQgPoUiNzw_OIkOax6w'
+        run: |
+          set -u
+          mkdir -p course-live/diagnostics
+          OUT=course-live/diagnostics/student-backend.txt
+          : > "$OUT"
+          probe() {
+            name="$1"; url="$2"
+            code=$(curl -sS -L --connect-timeout 10 --max-time 30 \
+              -H "apikey: $KEY" \
+              -H 'accept: application/json' \
+              -o /tmp/body -w '%{http_code}' "$url" || printf '000')
+            body=$(tr '\n\r' '  ' </tmp/body 2>/dev/null | head -c 240 || true)
+            printf '%s_status=%s\n%s_body=%s\n' "$name" "$code" "$name" "$body" >> "$OUT"
+          }
+          probe auth_health "$BASE/auth/v1/health"
+          probe access "$BASE/rest/v1/course_access?select=is_active&limit=1"
+          probe roles "$BASE/rest/v1/user_roles?select=role&limit=1"
+          probe progress "$BASE/rest/v1/lesson_progress?select=lesson_id&limit=1"
+          probe profiles "$BASE/rest/v1/profiles?select=full_name,email&limit=1"
+          cat "$OUT"
+      - name: Save diagnostic
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add course-live/diagnostics/student-backend.txt
+          git diff --cached --quiet || git commit -m 'Record student backend proxy diagnostic'
+          git push
