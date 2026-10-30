@@ -1,0 +1,10 @@
+auth_health_status=200
+auth_health_body={"version":"v2.197.0","name":"GoTrue","description":"GoTrue is a user registration and authentication API"}
+access_status=200
+access_body=[]
+roles_status=200
+roles_body=[]
+progress_status=200
+progress_body=[]
+profiles_status=200
+profiles_body=[]
