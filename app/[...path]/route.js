@@ -1,5 +1,3 @@
-export const runtime = "edge";
-
 const SUPABASE = "https://ytolxddmtybtatadhyqj.supabase.co";
 const ALLOWED_ORIGIN = "https://ws2d24ptvc-debug.github.io";
 
