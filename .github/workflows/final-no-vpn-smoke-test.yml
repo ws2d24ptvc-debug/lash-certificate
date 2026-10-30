@@ -1,0 +1,85 @@
+name: Final no-VPN GitHub Pages smoke test
+
+on:
+  push:
+    paths:
+      - '.github/workflows/final-no-vpn-smoke-test.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  BASE: 'https://ws2d24ptvc-debug.github.io/lash-certificate/course-live'
+  SUPABASE: 'https://ytolxddmtybtatadhyqj.supabase.co'
+  SUPABASE_KEY: 'sb_publishable_3jTxl7e4GIEbzQgPoUiNzw_OIkOax6w'
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Wait for Pages and check public routes
+        shell: bash
+        run: |
+          set -euo pipefail
+          lesson=$(find course-live/lesson -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | head -n 1)
+          asset='assets/client-OS6V9nLy.js'
+
+          check_url() {
+            name="$1"; url="$2"
+            code='000'
+            for i in 1 2 3 4 5 6; do
+              code=$(curl -L -sS -o "/tmp/$name" -w '%{http_code}' "$url" || true)
+              [ "$code" = '200' ] && break
+              sleep 10
+            done
+            printf '%s=%s\n' "$name" "$code" >> /tmp/result.txt
+            test "$code" = '200'
+          }
+
+          : > /tmp/result.txt
+          check_url course "$BASE/"
+          check_url auth "$BASE/auth/"
+          check_url cabinet "$BASE/cabinet/"
+          check_url certificate "$BASE/certificate/"
+          check_url lesson "$BASE/lesson/$lesson/"
+          check_url client_asset "$BASE/$asset"
+
+          if grep -Fq 'https://ytolxddmtybtatadhyqj.supabase.co' /tmp/client_asset; then
+            echo 'client_direct_supabase=yes' >> /tmp/result.txt
+          else
+            echo 'client_direct_supabase=no' >> /tmp/result.txt
+            exit 1
+          fi
+
+          if grep -Fq 'prod.lovable.cloud' /tmp/client_asset; then
+            echo 'client_lovable_cloud=no_not_removed' >> /tmp/result.txt
+            exit 1
+          else
+            echo 'client_lovable_cloud=removed' >> /tmp/result.txt
+          fi
+
+          supabase_code=$(curl -sS -o /tmp/supabase -w '%{http_code}' -H "apikey: $SUPABASE_KEY" "$SUPABASE/auth/v1/settings")
+          echo "direct_supabase_settings=$supabase_code" >> /tmp/result.txt
+          test "$supabase_code" = '200'
+
+          echo "lesson_id=$lesson" >> /tmp/result.txt
+          date -u +"checked_at=%Y-%m-%dT%H:%M:%SZ" >> /tmp/result.txt
+          cat /tmp/result.txt
+          cp /tmp/result.txt no-vpn-final.txt
+
+      - name: Save verification result
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add no-vpn-final.txt
+          if git diff --cached --quiet; then
+            echo 'No result change'
+          else
+            git commit -m 'Verify current GitHub Pages course works without VPN backend dependency'
+            git push
+          fi
