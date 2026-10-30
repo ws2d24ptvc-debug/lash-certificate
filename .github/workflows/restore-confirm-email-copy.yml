@@ -1,0 +1,41 @@
+name: Restore confirmation email copy
+
+on:
+  push:
+    paths:
+      - '.github/workflows/restore-confirm-email-copy.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Remove temporary registration copy override only
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          targets = [Path('course-live/index.html'), Path('course-live/auth/index.html')]
+          pat = re.compile(r'<script data-fix="registration-copy-fix-20261031">.*?</script>', re.S)
+          changed=[]
+          for p in targets:
+              text=p.read_text(encoding='utf-8')
+              new,n=pat.subn('',text)
+              if n:
+                  p.write_text(new,encoding='utf-8')
+                  changed.append(str(p))
+          print('changed', changed)
+          PY
+      - name: Commit
+        run: |
+          if git diff --quiet; then exit 0; fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add course-live/index.html course-live/auth/index.html
+          git commit -m 'Restore confirm email signup message'
+          git push
