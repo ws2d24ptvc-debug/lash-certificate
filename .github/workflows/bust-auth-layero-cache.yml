@@ -1,0 +1,31 @@
+name: Bust auth Layero cache
+
+on:
+  push:
+    paths:
+      - '.github/workflows/bust-auth-layero-cache.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Bump new-backend fetch cache version
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('course-live/auth/index.html')
+          s=p.read_text()
+          s=s.replace('new-backend-fetch-20261031.js?v=1','new-backend-fetch-20261031.js?v=2')
+          p.write_text(s)
+          PY
+      - name: Commit
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add course-live/auth/index.html
+          git commit -m 'Use Layero auth backend cache-bust' || exit 0
+          git push
