@@ -1,0 +1,49 @@
+name: Visible Layero login and deploy
+
+on:
+  push:
+    paths:
+      - '.github/workflows/layero-login-visible.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Start Layero login and publish approval URL
+        shell: bash
+        run: |
+          rm -f /tmp/layero-login.log
+          (cd render-proxy && npx --yes layero@latest login) > /tmp/layero-login.log 2>&1 &
+          pid=$!
+          url=''
+          for i in $(seq 1 40); do
+            url=$(grep -Eo 'https://app\.layero\.ru/cli\?code=[A-Z0-9-]+' /tmp/layero-login.log | head -1 || true)
+            if [ -n "$url" ]; then break; fi
+            sleep 1
+          done
+          if [ -z "$url" ]; then
+            cat /tmp/layero-login.log
+            kill $pid || true
+            exit 1
+          fi
+          mkdir -p course-live/diagnostics
+          printf '%s\n' "$url" > course-live/diagnostics/layero-login-url.txt
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add course-live/diagnostics/layero-login-url.txt
+          git commit -m 'Publish current Layero approval URL'
+          git push
+          wait $pid
+      - name: Link existing proxy project
+        working-directory: render-proxy
+        run: npx --yes layero@latest link lash-course-auth-proxy --no-deploy
+      - name: Deploy dual proxy to production
+        working-directory: render-proxy
+        run: npx --yes layero@latest deploy --prod
