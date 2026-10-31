@@ -23,3 +23,5 @@ jobs:
         run: npx --yes layero@latest link lash-course-auth-proxy --no-deploy
       - name: Deploy dual proxy to production
         run: npx --yes layero@latest deploy --prod
+
+# retry 2026-10-31 after Supabase SMTP setup
