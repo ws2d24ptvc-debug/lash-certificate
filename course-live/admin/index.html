@@ -56,6 +56,7 @@
     </main>
   </div>
 
+  <script src="../assets/new-backend-fetch-20261031.js?v=2"></script>
   <script type="module">
     import { t as supabase } from '../assets/client-OS6V9nLy-studentfix5.js';
 
@@ -79,20 +80,17 @@
     async function loadStudents() {
       $('notice').classList.add('hidden');
       $('list').innerHTML = '<div class="msg">Загрузка учениц…</div>';
-      const [profiles, access, progress, roles] = await Promise.all([
-        supabase.from('profiles').select('id, full_name, email, created_at').order('created_at', { ascending: false }),
-        supabase.from('course_access').select('user_id, is_active, activated_at, note'),
-        supabase.from('lesson_progress').select('user_id, lesson_id'),
-        supabase.from('user_roles').select('user_id, role'),
-      ]);
-      const failed = [profiles, access, progress, roles].find(x => x.error);
-      if (failed?.error) throw failed.error;
-      const admins = new Set((roles.data || []).filter(r => r.role === 'admin').map(r => r.user_id));
-      state.rows = (profiles.data || []).filter(p => !admins.has(p.id)).map(p => {
-        const a = (access.data || []).find(x => x.user_id === p.id);
-        const done = new Set((progress.data || []).filter(x => x.user_id === p.id).map(x => x.lesson_id)).size;
-        return { ...p, active: !!a?.is_active, activatedAt: a?.activated_at || null, percent: Math.round((Math.min(done, TOTAL_LESSONS) / TOTAL_LESSONS) * 100) };
-      });
+      const { data, error } = await supabase.rpc('admin_list_students', { _query: '', _access_filter: 'all' });
+      if (error) throw error;
+      state.rows = (data?.students || []).map(r => ({
+        id: r.userId,
+        full_name: r.name || null,
+        email: r.email || null,
+        created_at: r.registeredAt || null,
+        active: !!r.active,
+        activatedAt: r.activatedAt || null,
+        percent: Number(r.progressPercent || 0),
+      }));
       render();
     }
 
@@ -124,15 +122,7 @@
       state.busy = userId;
       render();
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session?.user?.id) throw new Error('Сессия завершена');
-        const { data: myRoles, error: roleError } = await supabase.from('user_roles').select('role').eq('user_id', session.user.id);
-        if (roleError || !(myRoles || []).some(r => r.role === 'admin')) throw new Error('Нет прав администратора');
-        const { data: targetRoles, error: targetError } = await supabase.from('user_roles').select('role').eq('user_id', userId);
-        if (targetError) throw targetError;
-        if ((targetRoles || []).some(r => r.role === 'admin')) throw new Error('Доступ администратора не изменяется');
-        const now = new Date().toISOString();
-        const { error } = await supabase.from('course_access').upsert({ user_id: userId, is_active: active, activated_at: active ? now : null, updated_at: now }, { onConflict: 'user_id' });
+        const { error } = await supabase.rpc('admin_set_course_access', { _user_id: userId, _active: active });
         if (error) throw error;
         await loadStudents();
         showNotice(active ? 'Доступ открыт ✓' : 'Доступ закрыт ✓', false);
