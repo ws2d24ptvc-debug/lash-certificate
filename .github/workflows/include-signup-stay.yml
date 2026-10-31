@@ -1,0 +1,34 @@
+name: Include signup stay handler
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/include-signup-stay.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch auth page
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('course-live/auth/index.html')
+          s=p.read_text()
+          tag='<script src="/lash-certificate/course-live/assets/signup-stay-20261031.js?v=1"></script>'
+          needle='<script type="module" async="" src="/lash-certificate/course-live/assets/index-routing-20261031-v3-studentfix5.js"></script>'
+          if tag not in s:
+              if needle not in s:
+                  raise SystemExit('anchor not found')
+              p.write_text(s.replace(needle,tag+needle,1))
+          PY
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add course-live/auth/index.html
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Keep registration on page after signup"
+          git push
