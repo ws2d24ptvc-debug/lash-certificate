@@ -1,0 +1,25 @@
+name: Deploy Layero dual proxy
+
+on:
+  push:
+    paths:
+      - '.github/workflows/deploy-layero-dual-proxy.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: render-proxy
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Layero device login
+        run: npx --yes layero@latest login
+      - name: Link existing proxy project
+        run: npx --yes layero@latest link lash-course-auth-proxy --no-deploy
+      - name: Deploy dual proxy to production
+        run: npx --yes layero@latest deploy --prod
