@@ -1,5 +1,5 @@
 (function(){
-  const BASE='https://br-purple-bonus-b9gcitpk-lashproxy2.compute.c-7.eu-central-1.aws.neon.tech';
+  const BASE='https://lash-course-auth-proxy.layero.app/new';
   const KEY='sb_publishable_4CCOM_y--DyR87goWV3mPQ_givZCJcO';
   const nativeFetch=window.fetch.bind(window);
   function authenticatedJwt(token){
