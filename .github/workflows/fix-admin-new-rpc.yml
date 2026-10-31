@@ -1,0 +1,47 @@
+name: Fix admin to use new Supabase RPC
+
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-admin-new-rpc.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch admin bundle
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          p = Path('course-live/assets/admin-Cpv_dc9t-studentfix5.js')
+          s = p.read_text()
+
+          old_import = 'import{i as s,n as c,r as l}from"./client-OS6V9nLy-studentfix5.js";'
+          new_import = 'import{i as s,n as c,r as l,t as AdminDb}from"./client-OS6V9nLy-studentfix5.js";'
+          if old_import not in s and new_import not in s:
+              raise SystemExit('Supabase client import pattern not found')
+          s = s.replace(old_import, new_import, 1)
+
+          pattern = re.compile(r'var Sr=f\(\{type:`function`\}\),Cr=k\(\{method:`POST`\}\)\.middleware\(\[Sr\]\)\.handler\(h\(`e205a20b69aa34645601227e525daac5166fbd10c680a1376ea343b80442b234`\)\),wr=k\(\{method:`POST`\}\)\.middleware\(\[Sr\]\)\.handler\(h\(`c7e745d8bf2a148c40e8d2de62771fa924fc4bdad622f17af5f4a490e40e5d94`\)\);')
+          replacement = '''var Sr=f({type:`function`}),Cr=async()=>{let{data:e,error:t}=await AdminDb.rpc(`admin_list_students`,{_query:``,_access_filter:`all`});if(t)throw t;return(e?.students??[]).map(e=>({id:e.userId,full_name:e.name,email:e.email,created_at:e.registeredAt,active:!!e.active,activatedAt:e.activatedAt??null,note:``,percent:e.progressPercent??0}))},wr=async({data:e})=>{let{error:t}=await AdminDb.rpc(`admin_set_course_access`,{_user_id:e.userId,_active:e.active});if(t)throw t};'''
+          s2, n = pattern.subn(replacement, s, count=1)
+          if n != 1:
+              if 'AdminDb.rpc(`admin_list_students`' not in s:
+                  raise SystemExit(f'Old admin server function pattern not found (matches={n})')
+              s2 = s
+
+          p.write_text(s2)
+          PY
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add course-live/assets/admin-Cpv_dc9t-studentfix5.js
+          git diff --cached --quiet || git commit -m "Use new Supabase RPCs in admin panel"
+          git push
