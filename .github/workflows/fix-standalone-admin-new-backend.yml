@@ -1,0 +1,92 @@
+name: Fix standalone admin for new backend
+
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-standalone-admin-new-backend.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch standalone admin page
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          p = Path('course-live/admin/index.html')
+          s = p.read_text()
+
+          marker = "  <script type=\"module\">"
+          bridge = "  <script src=\"../assets/new-backend-fetch-20261031.js?v=2\"></script>\n  <script type=\"module\">"
+          if 'new-backend-fetch-20261031.js' not in s:
+              if marker not in s:
+                  raise SystemExit('Module script marker not found')
+              s = s.replace(marker, bridge, 1)
+
+          load_pattern = re.compile(r"    async function loadStudents\(\) \{.*?\n    \}\n\n    function render\(\)", re.S)
+          load_replacement = '''    async function loadStudents() {
+      $('notice').classList.add('hidden');
+      $('list').innerHTML = '<div class="msg">Загрузка учениц…</div>';
+      const { data, error } = await supabase.rpc('admin_list_students', { _query: '', _access_filter: 'all' });
+      if (error) throw error;
+      state.rows = (data?.students || []).map(r => ({
+        id: r.userId,
+        full_name: r.name || null,
+        email: r.email || null,
+        created_at: r.registeredAt || null,
+        active: !!r.active,
+        activatedAt: r.activatedAt || null,
+        percent: Number(r.progressPercent || 0),
+      }));
+      render();
+    }
+
+    function render()'''
+          s2, n = load_pattern.subn(load_replacement, s, count=1)
+          if n != 1:
+              if "supabase.rpc('admin_list_students'" not in s:
+                  raise SystemExit(f'loadStudents block not found: {n}')
+              s2 = s
+          s = s2
+
+          change_pattern = re.compile(r"    async function changeAccess\(userId, active\) \{.*?\n    \}\n\n    function showNotice", re.S)
+          change_replacement = '''    async function changeAccess(userId, active) {
+      if (!active && !confirm('Закрыть доступ ученице? Прогресс сохранится.')) return;
+      state.busy = userId;
+      render();
+      try {
+        const { error } = await supabase.rpc('admin_set_course_access', { _user_id: userId, _active: active });
+        if (error) throw error;
+        await loadStudents();
+        showNotice(active ? 'Доступ открыт ✓' : 'Доступ закрыт ✓', false);
+      } catch (e) {
+        console.error(e);
+        showNotice(`Не удалось изменить доступ: ${e?.message || 'ошибка'}`, true);
+      } finally {
+        state.busy = null;
+        render();
+      }
+    }
+
+    function showNotice'''
+          s2, n = change_pattern.subn(change_replacement, s, count=1)
+          if n != 1:
+              if "supabase.rpc('admin_set_course_access'" not in s:
+                  raise SystemExit(f'changeAccess block not found: {n}')
+              s2 = s
+
+          p.write_text(s2)
+          PY
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add course-live/admin/index.html
+          git diff --cached --quiet || git commit -m "Route standalone admin through new backend"
+          git push
