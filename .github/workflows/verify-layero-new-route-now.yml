@@ -1,0 +1,23 @@
+name: Verify Layero new route now
+
+on:
+  push:
+    paths:
+      - '.github/workflows/verify-layero-new-route-now.yml'
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check Layero health and new route
+        env:
+          PROXY: https://lash-course-auth-proxy.layero.app
+        run: |
+          set -euxo pipefail
+          health=$(curl -fsS --connect-timeout 10 --max-time 30 "$PROXY/health")
+          echo "health=$health"
+          test "$health" = "ok-cors5-dual"
+          code=$(curl -sS -o /tmp/body -w '%{http_code}' --connect-timeout 10 --max-time 30 "$PROXY/new/auth/v1/settings" || true)
+          echo "new_route_http=$code"
+          cat /tmp/body || true
+          test "$code" != "000"
