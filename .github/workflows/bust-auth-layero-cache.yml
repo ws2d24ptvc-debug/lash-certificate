@@ -29,3 +29,4 @@ jobs:
           git add course-live/auth/index.html
           git commit -m 'Use Layero auth backend cache-bust' || exit 0
           git push
+# retrigger 2026-10-31
